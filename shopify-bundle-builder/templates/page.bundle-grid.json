@@ -1,0 +1,60 @@
+{
+  "sections": {
+    "main": {
+      "type": "main-page",
+      "settings": {}
+    },
+    "bundle_grid": {
+      "type": "bundle-builder",
+      "settings": {
+        "title": "Build Your Own Box",
+        "title_ar": "ابنِ صندوقك بنفسك",
+        "subtitle": "Mix any items across tabs — the more you add, the more you save",
+        "subtitle_ar": "امزج أي منتجات عبر التبويبات — كلما أضفت أكثر وفّرت أكثر",
+        "bundle_type": "mix_match",
+        "min_products": 3,
+        "max_products": 9,
+        "discount_type": "tiered",
+        "show_progress_bar": true,
+        "show_savings": true,
+        "enable_search": true,
+        "desktop_columns": 3,
+        "mobile_columns": 2,
+        "color_accent": "#c0392b",
+        "section_padding_top": 30,
+        "section_padding_bottom": 60
+      },
+      "blocks": {
+        "tab_nuts": {
+          "type": "collection",
+          "settings": {
+            "collection": "مكسرات",
+            "collection_tab_label": "Nuts",
+            "product_limit": 12,
+            "show_collection_image": false
+          }
+        },
+        "tab_choc": {
+          "type": "collection",
+          "settings": {
+            "collection": "شوكولاتة-بلجيكية-فاخرة",
+            "collection_tab_label": "Chocolate",
+            "product_limit": 12,
+            "show_collection_image": false
+          }
+        },
+        "tab_sweets": {
+          "type": "collection",
+          "settings": {
+            "collection": "حلويات-العيد",
+            "collection_tab_label": "Sweets",
+            "product_limit": 12,
+            "show_collection_image": false
+          }
+        }
+      },
+      "block_order": ["tab_nuts", "tab_choc", "tab_sweets"]
+    }
+  },
+  "order": ["main", "bundle_grid"]
+}
