@@ -10,8 +10,10 @@
     assign is_tiered = true
   endif
   assign locale_dir = 'ltr'
+  assign locale_is_ar = false
   if request.locale.iso_code == 'ar'
     assign locale_dir = 'rtl'
+    assign locale_is_ar = true
   endif
   assign min_qty = bb.min_products | default: 1
   assign max_qty = bb.max_products | default: 6
@@ -55,13 +57,13 @@
   class="bundle-builder-section"
   data-section-id="{{ section_id }}"
   dir="{{ locale_dir }}"
-  aria-label="{{ 'sections.bundle_builder.aria_label' | t | default: 'Bundle Builder' }}"
+  aria-label="{%- if locale_is_ar -%}أداة بناء الطقم{%- else -%}Bundle Builder{%- endif -%}"
 >
 
   {%- comment -%} ── Countdown Timer ──────────────────────────────────────── {%- endcomment -%}
   {%- if bb.show_timer and timer_end != blank -%}
   <div class="bb-timer-bar" role="timer" aria-live="polite" data-end="{{ timer_end }}">
-    <span class="bb-timer-label">{{ 'sections.bundle_builder.timer_label' | t | default: 'Offer ends in' }}</span>
+    <span class="bb-timer-label">{%- if locale_is_ar -%}ينتهي العرض خلال{%- else -%}Offer ends in{%- endif -%}</span>
     <span class="bb-timer-display">
       <span class="bb-timer-unit" data-unit="days">00</span><span class="bb-timer-sep">d</span>
       <span class="bb-timer-unit" data-unit="hours">00</span><span class="bb-timer-sep">h</span>
@@ -108,7 +110,7 @@
 
     {%- comment -%} ── Tiered discount bar ──────────────────────────────────── {%- endcomment -%}
     {%- if is_tiered or bb.tier_1_qty > 0 -%}
-    <div class="bb-tier-bar" role="group" aria-label="{{ 'sections.bundle_builder.tier_bar_label' | t | default: 'Discount tiers' }}">
+    <div class="bb-tier-bar" role="group" aria-label="{%- if locale_is_ar -%}مستويات الخصم{%- else -%}Discount tiers{%- endif -%}">
       {%- if bb.tier_1_qty > 0 -%}
       <div class="bb-tier-badge" data-qty="{{ bb.tier_1_qty }}" data-discount="{{ bb.tier_1_discount }}" style="--tier-color:{{ bb.color_tier_1 | default: '#2ecc71' }}">
         <span class="bb-tier-badge__qty">{{ bb.tier_1_qty }}+</span>
@@ -153,7 +155,7 @@
       <div class="bb-free-gift-banner__inner">
         <span class="bb-free-gift-banner__icon" aria-hidden="true">🎁</span>
         <span class="bb-free-gift-banner__text">
-          {{ 'sections.bundle_builder.free_gift_unlocked' | t | default: "You've unlocked a free gift!" }}
+          {%- if locale_is_ar -%}لقد حصلت على هدية مجانية!{%- else -%}You've unlocked a free gift!{%- endif -%}
         </span>
         <div class="bb-free-gift-product">
           {%- assign fg = bb.free_gift_product -%}
@@ -171,7 +173,7 @@
 
     {%- comment -%} ── Wizard step indicator ────────────────────────────────── {%- endcomment -%}
     {%- if is_wizard -%}
-    <nav class="bb-wizard-nav" aria-label="{{ 'sections.bundle_builder.wizard_steps_label' | t | default: 'Bundle steps' }}">
+    <nav class="bb-wizard-nav" aria-label="{%- if locale_is_ar -%}خطوات الطقم{%- else -%}Bundle steps{%- endif -%}">
       <div class="bb-wizard-steps" id="bb-wizard-steps-{{ section_id }}">
         {%- assign step_index = 0 -%}
         {%- for block in section.blocks -%}
@@ -195,7 +197,7 @@
       </div>
       <div class="bb-wizard-progress-text" aria-live="polite">
         <span class="bb-wizard-step-current">1</span>
-        {{ 'sections.bundle_builder.wizard_of' | t | default: 'of' }}
+        {%- if locale_is_ar -%}من{%- else -%}of{%- endif -%}
         <span class="bb-wizard-step-total">{{ step_index }}</span>
       </div>
     </nav>
@@ -211,13 +213,13 @@
         {%- if bb.enable_search -%}
         <div class="bb-search-bar">
           <label for="bb-search-{{ section_id }}" class="visually-hidden">
-            {{ 'sections.bundle_builder.search_label' | t | default: 'Search products' }}
+            {%- if locale_is_ar -%}ابحث عن المنتجات{%- else -%}Search products{%- endif -%}
           </label>
           <input
             type="search"
             id="bb-search-{{ section_id }}"
             class="bb-search-input"
-            placeholder="{{ 'sections.bundle_builder.search_placeholder' | t | default: 'Search products…' }}"
+            placeholder="{%- if locale_is_ar -%}ابحث عن المنتجات…{%- else -%}Search products…{%- endif -%}"
             autocomplete="off"
             aria-controls="bb-product-grid-{{ section_id }}"
           >
@@ -237,7 +239,7 @@
 
         {%- if has_collections -%}
           {%- unless is_wizard -%}
-          <div class="bb-tabs" role="tablist" aria-label="{{ 'sections.bundle_builder.collections_label' | t | default: 'Product collections' }}">
+          <div class="bb-tabs" role="tablist" aria-label="{%- if locale_is_ar -%}أقسام المنتجات{%- else -%}Product collections{%- endif -%}">
             {%- assign tab_index = 0 -%}
             {%- for block in section.blocks -%}
               {%- if block.type == 'collection' -%}
@@ -395,14 +397,14 @@
                           {%- endif -%}
 
                           {%- unless first_variant.available -%}
-                            <div class="bb-product-card__sold-out" aria-label="{{ 'sections.bundle_builder.sold_out' | t | default: 'Sold out' }}">
-                              {{ 'sections.bundle_builder.sold_out' | t | default: 'Sold out' }}
+                            <div class="bb-product-card__sold-out" aria-label="{%- if locale_is_ar -%}نفدت الكمية{%- else -%}Sold out{%- endif -%}">
+                              {%- if locale_is_ar -%}نفدت الكمية{%- else -%}Sold out{%- endif -%}
                             </div>
                           {%- endunless -%}
 
                           {%- if is_required -%}
                             <div class="bb-product-card__required-badge">
-                              {{ 'sections.bundle_builder.required' | t | default: 'Required' }}
+                              {%- if locale_is_ar -%}إلزامي{%- else -%}Required{%- endif -%}
                             </div>
                           {%- endif -%}
 
@@ -410,7 +412,7 @@
                             class="bb-product-card__quick-view"
                             data-product-handle="{{ product.handle }}"
                             data-product-url="{{ product.url }}"
-                            aria-label="{{ 'sections.bundle_builder.quick_view' | t | default: 'Quick view' }} {{ product.title | escape }}"
+                            aria-label="{%- if locale_is_ar -%}عرض سريع{%- else -%}Quick view{%- endif -%} {{ product.title | escape }}"
                             type="button"
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -434,7 +436,7 @@
                           <div class="bb-product-card__variant-select-wrap">
                             <select
                               class="bb-product-card__variant-select"
-                              aria-label="{{ 'sections.bundle_builder.select_variant' | t | default: 'Select variant' }}"
+                              aria-label="{%- if locale_is_ar -%}اختر الخيار{%- else -%}Select variant{%- endif -%}"
                               data-product-id="{{ product.id }}"
                             >
                               {%- for variant in product.variants -%}
@@ -457,26 +459,26 @@
                               data-action="add"
                               data-product-id="{{ product.id }}"
                               data-variant-id="{{ first_variant.id }}"
-                              aria-label="{{ 'sections.bundle_builder.add_to_bundle' | t | default: 'Add to bundle' }}: {{ product.title | escape }}"
+                              aria-label="{%- if locale_is_ar -%}أضف إلى الطقم{%- else -%}Add to bundle{%- endif -%}: {{ product.title | escape }}"
                               type="button"
                               {% unless first_variant.available %}disabled aria-disabled="true"{% endunless %}
                             >
                               <span class="bb-btn-icon" aria-hidden="true">+</span>
-                              <span class="bb-btn-label">{{ 'sections.bundle_builder.add' | t | default: 'Add' }}</span>
+                              <span class="bb-btn-label">{%- if locale_is_ar -%}أضف{%- else -%}Add{%- endif -%}</span>
                             </button>
                             <button
                               class="bb-product-card__qty-btn bb-product-card__qty-btn--minus"
                               data-action="remove"
                               data-product-id="{{ product.id }}"
                               data-variant-id="{{ first_variant.id }}"
-                              aria-label="{{ 'sections.bundle_builder.remove_from_bundle' | t | default: 'Remove from bundle' }}: {{ product.title | escape }}"
+                              aria-label="{%- if locale_is_ar -%}إزالة من الطقم{%- else -%}Remove from bundle{%- endif -%}: {{ product.title | escape }}"
                               type="button"
                               hidden
                             >−</button>
                             <span
                               class="bb-product-card__qty-display"
                               aria-live="polite"
-                              aria-label="{{ 'sections.bundle_builder.quantity_in_bundle' | t | default: 'Quantity in bundle' }}"
+                              aria-label="{%- if locale_is_ar -%}الكمية في الطقم{%- else -%}Quantity in bundle{%- endif -%}"
                               hidden
                             >0</span>
                           </div>
@@ -487,7 +489,7 @@
                     {%- endfor -%}
 
                     {%- if products_shown == 0 -%}
-                      <p class="bb-empty-collection">{{ 'sections.bundle_builder.no_products' | t | default: 'No products match your filters.' }}</p>
+                      <p class="bb-empty-collection">{%- if locale_is_ar -%}لا توجد منتجات مطابقة لاختياراتك.{%- else -%}No products match your filters.{%- endif -%}</p>
                     {%- endif -%}
                   </div><!-- /.bb-product-grid -->
                 </div><!-- /.bb-panel -->
@@ -498,13 +500,13 @@
 
         {%- comment -%} ── Wizard navigation buttons ─────────────────────────── {%- endcomment -%}
         {%- if is_wizard -%}
-        <div class="bb-wizard-controls" aria-label="{{ 'sections.bundle_builder.wizard_controls' | t | default: 'Step navigation' }}">
+        <div class="bb-wizard-controls" aria-label="{%- if locale_is_ar -%}التنقل بين الخطوات{%- else -%}Step navigation{%- endif -%}">
           <button class="bb-wizard-btn bb-wizard-btn--prev" id="bb-prev-{{ section_id }}" type="button" hidden>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            {{ 'sections.bundle_builder.wizard_prev' | t | default: 'Previous' }}
+            {%- if locale_is_ar -%}السابق{%- else -%}Previous{%- endif -%}
           </button>
           <button class="bb-wizard-btn bb-wizard-btn--next" id="bb-next-{{ section_id }}" type="button">
-            {{ 'sections.bundle_builder.wizard_next' | t | default: 'Next' }}
+            {%- if locale_is_ar -%}التالي{%- else -%}Next{%- endif -%}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           </button>
         </div>
@@ -513,16 +515,16 @@
       </div><!-- /.bb-picker -->
 
       {%- comment -%} ── Sidebar summary ───────────────────────────────────── {%- endcomment -%}
-      <aside class="bb-sidebar" aria-label="{{ 'sections.bundle_builder.sidebar_label' | t | default: 'Bundle summary' }}">
+      <aside class="bb-sidebar" aria-label="{%- if locale_is_ar -%}ملخص الطقم{%- else -%}Bundle summary{%- endif -%}">
 
         {%- comment -%} ── Progress bar ─────────────────────────────────────── {%- endcomment -%}
         {%- if bb.show_progress_bar -%}
-        <div class="bb-progress-wrap" aria-label="{{ 'sections.bundle_builder.progress_label' | t | default: 'Bundle progress' }}">
+        <div class="bb-progress-wrap" aria-label="{%- if locale_is_ar -%}تقدّم الطقم{%- else -%}Bundle progress{%- endif -%}">
           <div class="bb-progress-text" aria-live="polite">
             <span class="bb-progress-current">0</span>
-            {{ 'sections.bundle_builder.of' | t | default: 'of' }}
+            {%- if locale_is_ar -%}من{%- else -%}of{%- endif -%}
             <span class="bb-progress-max">{{ max_qty }}</span>
-            {{ 'sections.bundle_builder.items_selected' | t | default: 'items selected' }}
+            {%- if locale_is_ar -%}منتجات مختارة{%- else -%}items selected{%- endif -%}
           </div>
           <div
             class="bb-progress-bar"
@@ -530,14 +532,14 @@
             aria-valuemin="0"
             aria-valuemax="{{ max_qty }}"
             aria-valuenow="0"
-            aria-label="{{ 'sections.bundle_builder.progress_bar_label' | t | default: 'Bundle progress' }}"
+            aria-label="{%- if locale_is_ar -%}تقدّم الطقم{%- else -%}Bundle progress{%- endif -%}"
           >
             <div class="bb-progress-fill" style="width:0%"></div>
           </div>
           <p class="bb-progress-hint" aria-live="polite">
-            {{ 'sections.bundle_builder.progress_hint_start' | t | default: 'Add' }}
+            {%- if locale_is_ar -%}أضف{%- else -%}Add{%- endif -%}
             <strong class="bb-progress-remaining">{{ max_qty }}</strong>
-            {{ 'sections.bundle_builder.progress_hint_end' | t | default: 'more items to complete your bundle' }}
+            {%- if locale_is_ar -%}منتجات إضافية لإكمال طقمك{%- else -%}more items to complete your bundle{%- endif -%}
           </p>
         </div>
         {%- endif -%}
@@ -554,16 +556,16 @@
         {%- comment -%} ── Selected items list ───────────────────────────────── {%- endcomment -%}
         <div class="bb-selection-summary">
           <h3 class="bb-selection-summary__heading">
-            {{ 'sections.bundle_builder.your_bundle' | t | default: 'Your Bundle' }}
+            {%- if locale_is_ar -%}طقمك{%- else -%}Your Bundle{%- endif -%}
           </h3>
           <ul
             class="bb-selection-list"
             id="bb-selection-list-{{ section_id }}"
-            aria-label="{{ 'sections.bundle_builder.selected_products' | t | default: 'Selected products' }}"
+            aria-label="{%- if locale_is_ar -%}المنتجات المختارة{%- else -%}Selected products{%- endif -%}"
             aria-live="polite"
           >
             <li class="bb-selection-empty">
-              {{ 'sections.bundle_builder.empty_state' | t | default: 'Your bundle is empty. Start adding products!' }}
+              {%- if locale_is_ar -%}طقمك فارغ. ابدأ بإضافة المنتجات!{%- else -%}Your bundle is empty. Start adding products!{%- endif -%}
             </li>
           </ul>
         </div>
@@ -572,16 +574,16 @@
         <div class="bb-price-summary">
           {%- if bb.show_savings -%}
           <div class="bb-price-row bb-price-row--original" hidden>
-            <span>{{ 'sections.bundle_builder.original_price' | t | default: 'Original' }}</span>
+            <span>{%- if locale_is_ar -%}السعر الأصلي{%- else -%}Original{%- endif -%}</span>
             <span class="bb-original-total">{{ 0 | money }}</span>
           </div>
           <div class="bb-price-row bb-price-row--savings" hidden>
-            <span>{{ 'sections.bundle_builder.you_save' | t | default: 'You save' }}</span>
+            <span>{%- if locale_is_ar -%}وفّرت{%- else -%}You save{%- endif -%}</span>
             <span class="bb-savings-amount"></span>
           </div>
           {%- endif -%}
           <div class="bb-price-row bb-price-row--total">
-            <span>{{ 'sections.bundle_builder.total' | t | default: 'Total' }}</span>
+            <span>{%- if locale_is_ar -%}الإجمالي{%- else -%}Total{%- endif -%}</span>
             <strong class="bb-bundle-total" aria-live="polite">{{ 0 | money }}</strong>
           </div>
         </div>
@@ -593,12 +595,12 @@
           type="button"
           disabled
           aria-disabled="true"
-          aria-label="{{ 'sections.bundle_builder.add_bundle_to_cart' | t | default: 'Add bundle to cart' }}"
+          aria-label="{%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add bundle to cart{%- endif -%}"
         >
           <span class="bb-cta-btn__icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
           </span>
-          <span class="bb-cta-btn__label">{{ 'sections.bundle_builder.add_to_cart' | t | default: 'Add Bundle to Cart' }}</span>
+          <span class="bb-cta-btn__label">{%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add Bundle to Cart{%- endif -%}</span>
           <span class="bb-cta-btn__spinner" aria-hidden="true" hidden></span>
         </button>
 
@@ -607,7 +609,7 @@
         {%- if bb.show_savings -%}
         <p class="bb-guarantee-text">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          {{ 'sections.bundle_builder.guarantee' | t | default: 'Secure checkout · Free returns' }}
+          {%- if locale_is_ar -%}دفع آمن · إرجاع مجاني{%- else -%}Secure checkout · Free returns{%- endif -%}
         </p>
         {%- endif -%}
 
@@ -616,10 +618,10 @@
 
     {%- comment -%} ── Mobile drawer ─────────────────────────────────────────── {%- endcomment -%}
     <div class="bb-mobile-drawer" id="bb-drawer-{{ section_id }}" aria-hidden="true">
-      <div class="bb-mobile-drawer__handle" aria-label="{{ 'sections.bundle_builder.open_summary' | t | default: 'Open bundle summary' }}" tabindex="0" role="button">
+      <div class="bb-mobile-drawer__handle" aria-label="{%- if locale_is_ar -%}فتح ملخص الطقم{%- else -%}Open bundle summary{%- endif -%}" tabindex="0" role="button">
         <span class="bb-mobile-drawer__pill"></span>
         <span class="bb-mobile-drawer__preview">
-          <span class="bb-drawer-qty">0</span> {{ 'sections.bundle_builder.items' | t | default: 'items' }} ·
+          <span class="bb-drawer-qty">0</span> {%- if locale_is_ar -%}منتجات{%- else -%}items{%- endif -%} ·
           <strong class="bb-drawer-total">{{ 0 | money }}</strong>
         </span>
         <span class="bb-mobile-drawer__arrow" aria-hidden="true">▲</span>
@@ -629,7 +631,7 @@
           <!-- cloned at runtime -->
         </div>
         <button class="bb-cta-btn bb-cta-btn--drawer" type="button" disabled aria-disabled="true">
-          {{ 'sections.bundle_builder.add_to_cart' | t | default: 'Add Bundle to Cart' }}
+          {%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add Bundle to Cart{%- endif -%}
         </button>
       </div>
     </div>
@@ -638,15 +640,15 @@
     <dialog
       class="bb-quick-view-dialog"
       id="bb-quick-view-{{ section_id }}"
-      aria-label="{{ 'sections.bundle_builder.quick_view_dialog' | t | default: 'Product quick view' }}"
+      aria-label="{%- if locale_is_ar -%}عرض سريع للمنتج{%- else -%}Product quick view{%- endif -%}"
       aria-modal="true"
     >
-      <button class="bb-quick-view-close" type="button" aria-label="{{ 'sections.bundle_builder.close' | t | default: 'Close' }}">
+      <button class="bb-quick-view-close" type="button" aria-label="{%- if locale_is_ar -%}إغلاق{%- else -%}Close{%- endif -%}">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
       <div class="bb-quick-view-content" aria-live="polite">
         <div class="bb-quick-view-loading">
-          <div class="bb-spinner" aria-label="{{ 'sections.bundle_builder.loading' | t | default: 'Loading…' }}"></div>
+          <div class="bb-spinner" aria-label="{%- if locale_is_ar -%}جارٍ التحميل…{%- else -%}Loading…{%- endif -%}"></div>
         </div>
       </div>
     </dialog>
@@ -1972,7 +1974,7 @@ class BundleBuilder extends HTMLElement {
     const total = this.#totalQuantity();
 
     if (total >= this.#maxQty) {
-      this.#showHint(this.#t('bundle_full', `Bundle full! Max ${this.#maxQty} items.`), 'error');
+      this.#showHint(this.#dir === 'rtl' ? `اكتمل الطقم! الحد الأقصى ${this.#maxQty} منتجات.` : `Bundle full! Max ${this.#maxQty} items.`, 'error');
       return;
     }
 
@@ -2094,7 +2096,7 @@ class BundleBuilder extends HTMLElement {
         const needed = next.qty - total;
         const textEl = nextEl.querySelector('.bb-next-tier-hint__text');
         if (textEl) {
-          textEl.textContent = `${this.#t('add_more', 'Add')} ${needed} ${this.#t('more_for', 'more for')} ${next.discount}% ${this.#t('off', 'off')}`;
+          textEl.textContent = this.#dir === 'rtl' ? `أضف ${needed} للحصول على خصم ${next.discount}%` : `Add ${needed} more for ${next.discount}% off`;
         }
       } else {
         nextEl.hidden = true;
@@ -2310,7 +2312,7 @@ class BundleBuilder extends HTMLElement {
     if (hint && !hint.classList.contains('is-error') && !hint.classList.contains('is-success')) {
       if (!ready) {
         const needed = this.#minQty - total;
-        hint.textContent = `${this.#t('add_more', 'Add')} ${needed} ${this.#t('more_items', 'more item(s) to proceed')}`;
+        hint.textContent = this.#dir === 'rtl' ? `أضف ${needed} منتجات للمتابعة` : `Add ${needed} more item(s) to proceed`;
       } else {
         hint.textContent = '';
       }
@@ -2395,7 +2397,7 @@ class BundleBuilder extends HTMLElement {
     if (curr) curr.textContent = step;
 
     this.#renderWizardControls();
-    this.#srAnnounce(`${this.#t('step', 'Step')} ${step} ${this.#t('of', 'of')} ${this.#wizardTotal}`);
+    this.#srAnnounce(this.#dir === 'rtl' ? `خطوة ${step} من ${this.#wizardTotal}` : `Step ${step} of ${this.#wizardTotal}`);
   }
 
   #wizardNext() { this.#goToWizardStep(this.#wizardStep + 1); }
@@ -2735,8 +2737,39 @@ class BundleBuilder extends HTMLElement {
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // Arabic strings for dynamic (JS-generated) messages. When the storefront
+  // locale is Arabic (dir=rtl) these override the English fallbacks below.
+  #i18nAr = {
+    add: 'أضف',
+    add_more: 'أضف',
+    added_to_bundle: 'أُضيف إلى الطقم',
+    added_to_cart: 'تمت إضافة الطقم إلى السلة!',
+    builder_ready: 'أداة بناء الطقم جاهزة. اختر المنتجات لبناء طقمك.',
+    bundle_complete: 'اكتمل الطقم! جاهز للإضافة إلى السلة.',
+    bundle_full: 'اكتمل الطقم!',
+    cart_error: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
+    complete_step: 'أكمل هذه الخطوة أولاً.',
+    decrease_qty: 'تقليل الكمية',
+    empty_state: 'طقمك فارغ. ابدأ بإضافة المنتجات!',
+    free: 'مجاناً',
+    free_gift_unlocked: 'تم فتح الهدية المجانية!',
+    increase_qty: 'زيادة الكمية',
+    of: 'من',
+    off: 'خصم',
+    quantity: 'الكمية',
+    quick_view_error: 'تعذّر تحميل تفاصيل المنتج.',
+    removed_from_bundle: 'أُزيل من الطقم',
+    required_item: 'لا يمكن إزالة عنصر إلزامي.',
+    step: 'خطوة',
+    view_full: 'عرض المنتج كامل',
+  };
+
   #t(key, fallback) {
-    // Simple client-side t() shim — real translations via Shopify's Liquid t filter
+    // Locale-aware: return the Arabic string in RTL locales, else the English
+    // fallback. Composed/interpolated messages are localised at the call site.
+    if (this.#dir === 'rtl' && this.#i18nAr[key] != null) {
+      return this.#i18nAr[key];
+    }
     return fallback;
   }
 }
