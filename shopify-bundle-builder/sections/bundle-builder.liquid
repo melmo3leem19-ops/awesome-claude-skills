@@ -1039,8 +1039,17 @@ bundle-builder {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  /* Forward (LTR) — new panel enters from the right */
   .bb-step-panel.is-active[data-animation="slide"] {
     animation: slideInStep 0.3s ease;
+  }
+  /* Back (LTR) — new panel enters from the left */
+  .bb-step-panel.is-active[data-animation="slide-back"] {
+    animation: slideInStepRtl 0.3s ease;
+  }
+  /* Forward (RTL) — mirror of forward LTR (enters from the left) */
+  .bb-step-panel.is-active[data-animation="slide-rtl"] {
+    animation: slideInStepRtl 0.3s ease;
   }
   .bb-step-panel.is-active[data-animation="fade"] {
     animation: fadeInStep 0.35s ease;
@@ -2315,6 +2324,44 @@ class BundleBuilder extends HTMLElement {
     panels.forEach(p => p.dataset.animation = anim);
   }
 
+  /**
+   * Restart the step-panel entrance animation every time a panel is shown.
+   *
+   * CSS @keyframes animations only fire when an element FIRST matches the
+   * animation selector. Re-toggling `is-active` on a panel that was
+   * `display:none` will NOT replay the animation on its own — the browser
+   * needs a forced reflow between clearing and re-applying the animation.
+   * We also flip the slide direction for "back" navigation and for RTL.
+   */
+  #playStepTransition(panel, goingBack) {
+    if (!panel) return;
+
+    // Respect the visitor's reduced-motion preference — skip animation.
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return;
+    }
+
+    let anim = this.#wizardAnim || 'slide';
+
+    // For "slide", pick the axis that reads correctly for direction + locale.
+    // Forward in LTR slides in from the end (right); back slides from start.
+    // RTL mirrors both. `slide-back` / `slide-rtl*` map to dedicated keyframes.
+    if (anim === 'slide') {
+      const rtl = this.#dir === 'rtl';
+      if (goingBack) {
+        anim = rtl ? 'slide' : 'slide-back';
+      } else {
+        anim = rtl ? 'slide-rtl' : 'slide';
+      }
+    }
+
+    // Clear, force a reflow, then re-apply so the keyframes restart cleanly.
+    panel.dataset.animation = '';
+    // eslint-disable-next-line no-unused-expressions
+    void panel.offsetWidth; // forced reflow — do not remove
+    panel.dataset.animation = anim;
+  }
+
   #goToWizardStep(step) {
     if (step < 1 || step > this.#wizardTotal) return;
     const canAdvance = this.#wizardStepIsComplete(this.#wizardStep);
@@ -2323,10 +2370,17 @@ class BundleBuilder extends HTMLElement {
       return;
     }
 
+    // Direction of travel — used to flip the slide axis (and to honour RTL).
+    const goingBack = step < this.#wizardStep;
+
     const panels   = this.querySelectorAll('.bb-step-panel, .bb-panel');
     const stepBtns = this.querySelectorAll('.bb-wizard-step-btn');
 
-    panels.forEach((p, i) => p.classList.toggle('is-active', i + 1 === step));
+    panels.forEach((p, i) => {
+      const willBeActive = i + 1 === step;
+      p.classList.toggle('is-active', willBeActive);
+      if (willBeActive) this.#playStepTransition(p, goingBack);
+    });
     stepBtns.forEach(btn => {
       const n = parseInt(btn.dataset.step, 10);
       btn.classList.toggle('is-active', n === step);
