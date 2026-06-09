@@ -1,256 +1,125 @@
 {
   "sections": {
-    "page_hero": {
-      "type": "image-banner",
-      "settings": {
-        "image_height": "medium",
-        "adapt_height_first_image": false,
-        "show_text_box": true,
-        "desktop_content_position": "middle-center",
-        "content_alignment": "center",
-        "color_scheme": "accent-2",
-        "heading": "Build Your Own Bundle",
-        "heading_ar": "أنشئ طقمك الخاص",
-        "heading_size": "h1",
-        "subheading": "Mix and match from our full range — the more you choose, the more you save.",
-        "subheading_ar": "اختر من مجموعتنا الكاملة — كلما اخترت أكثر، وفّرت أكثر.",
-        "button_label": "Start Building",
-        "button_label_ar": "ابدأ الآن",
-        "button_link": "#bundle-builder",
-        "button_style_secondary": false,
-        "show_text_below": false
-      },
-      "blocks": {},
-      "block_order": []
-    },
-    "bundle_steps_explainer": {
-      "type": "multicolumn",
-      "settings": {
-        "title": "How It Works",
-        "title_ar": "كيف يعمل",
-        "heading_size": "h2",
-        "image_width": "third",
-        "image_ratio": "adapt",
-        "columns_desktop": 3,
-        "column_alignment": "center",
-        "background_style": "none",
-        "button_label": "",
-        "color_scheme": "background-2",
-        "section_padding_top": 36,
-        "section_padding_bottom": 36
-      },
-      "blocks": {
-        "step_1": {
-          "type": "column",
-          "settings": {
-            "title": "1. Browse & Select",
-            "title_ar": "1. تصفح واختر",
-            "text": "Pick any 5 items from our home décor collection. Use search or browse by room.",
-            "text_ar": "اختر 5 منتجات من مجموعة ديكور المنزل. ابحث أو تصفح حسب الغرفة.",
-            "link_label": "",
-            "link": ""
-          }
-        },
-        "step_2": {
-          "type": "column",
-          "settings": {
-            "title": "2. See Your Savings",
-            "title_ar": "2. شاهد توفيرك",
-            "text": "The more items you add, the bigger the discount. Save up to 20% automatically.",
-            "text_ar": "كلما أضفت منتجات أكثر، زاد الخصم. وفّر حتى 20٪ تلقائياً.",
-            "link_label": "",
-            "link": ""
-          }
-        },
-        "step_3": {
-          "type": "column",
-          "settings": {
-            "title": "3. Add to Cart & Checkout",
-            "title_ar": "3. أضف إلى السلة وأتم الشراء",
-            "text": "Add your completed bundle to the cart. Your discount code is applied automatically.",
-            "text_ar": "أضف طقمك المكتمل إلى السلة. يُطبَّق كود الخصم تلقائياً.",
-            "link_label": "",
-            "link": ""
-          }
-        }
-      },
-      "block_order": ["step_1", "step_2", "step_3"]
-    },
     "bundle_builder": {
       "type": "bundle-builder",
       "settings": {
-        "section_id": "bundle-builder",
-        "title": "Build Your Bundle",
-        "title_ar": "بناء طقمك",
-        "subtitle": "Mix and match your favorites",
-        "subtitle_ar": "اختر مفضلاتك",
-        "bundle_metaobject_handle": "",
-        "bundle_type": "mix_match",
-        "bundle_limit": 5,
-        "min_products": 5,
-        "max_products": 5,
-        "discount_type": "percentage",
-        "discount_percentage": 20,
-        "discount_code": "HOME20",
-        "show_savings": true,
-        "show_progress_bar": true,
-        "enable_search": true,
-        "desktop_layout": "grid",
-        "desktop_columns": 3,
-        "mobile_layout": "grid",
-        "mobile_columns": 2,
-        "show_vendor": false,
-        "show_sku": false,
-        "show_quick_view": true,
-        "image_aspect_ratio": "square",
-        "color_scheme": "background-1",
-        "section_padding_top": 40,
-        "section_padding_bottom": 60
+        "title": "Build Your Own Bundle",
+        "title_ar": "اصنع طقمك الخاص",
+        "subtitle": "Save 15% plus get a FREE mini when you build your own bundle with 3 or more products.",
+        "subtitle_ar": "وفّر 15٪ واحصل على هدية مجانية عند إنشاء طقم من 3 منتجات أو أكثر.",
+        "marquee_text": "Free delivery in Kuwait on orders over 10 KWD  ·  Save up to 25% on bundles",
+        "marquee_text_ar": "توصيل مجاني داخل الكويت للطلبات فوق 10 د.ك  ·  وفّر حتى 25٪ على الأطقم",
+        "min_products": 3,
+        "max_products": 9,
+        "redirect_to_cart": false,
+        "tier_1_qty": 3,
+        "tier_1_discount": 15,
+        "tier_2_qty": 6,
+        "tier_2_discount": 20,
+        "tier_3_qty": 9,
+        "tier_3_discount": 25,
+        "enable_free_gift": false,
+        "free_gift_threshold": 3,
+        "image_fit": "contain",
+        "show_value_props": true,
+        "vp_1": "🎁 Free mini at 3+ items",
+        "vp_1_ar": "🎁 هدية مجانية عند 3 منتجات",
+        "vp_2": "🚚 Free delivery in Kuwait",
+        "vp_2_ar": "🚚 توصيل مجاني داخل الكويت",
+        "vp_3": "🔒 Secure checkout",
+        "vp_3_ar": "🔒 دفع آمن",
+        "show_how": true,
+        "how_title": "How It Works",
+        "how_title_ar": "كيف يعمل",
+        "how_1_title": "Pick Your Products",
+        "how_1_title_ar": "اختر منتجاتك",
+        "how_1_text": "Browse the categories below and add your favourites to the bundle.",
+        "how_1_text_ar": "تصفّح الأقسام بالأسفل وأضف مفضلاتك إلى الطقم.",
+        "how_2_title": "Watch The Savings",
+        "how_2_title_ar": "شاهد توفيرك",
+        "how_2_text": "The more you add, the bigger your discount — save up to 25%, plus a free mini.",
+        "how_2_text_ar": "كلما أضفت أكثر زاد خصمك — وفّر حتى 25٪ مع هدية مجانية.",
+        "how_3_title": "Add To Cart",
+        "how_3_title_ar": "أضف إلى السلة",
+        "how_3_text": "Add your finished bundle to the cart — your discount is applied automatically.",
+        "how_3_text_ar": "أضف طقمك المكتمل إلى السلة — يُطبَّق الخصم تلقائياً.",
+        "faq_heading": "Frequently Asked Questions",
+        "faq_heading_ar": "الأسئلة الشائعة",
+        "color_bg": "#f1f0ec",
+        "color_text": "#141414",
+        "color_rail_bg": "#e7dbd1",
+        "color_accent": "#1a1a1a",
+        "card_radius": 14,
+        "section_padding_top": 24,
+        "section_padding_bottom": 80
       },
       "blocks": {
-        "tier_1": {
-          "type": "tier_discount",
+        "cat_nuts": {
+          "type": "collection",
           "settings": {
-            "min_qty": 3,
-            "discount": 10,
-            "label": "Choose 3: 10% off",
-            "label_ar": "اختر 3: خصم 10٪"
+            "collection": "مكسرات",
+            "collection_tab_label": "Start With Nuts",
+            "step_description": "Premium roasted nuts — pick your favourites.",
+            "product_limit": 12
           }
         },
-        "tier_2": {
-          "type": "tier_discount",
+        "cat_choc": {
+          "type": "collection",
           "settings": {
-            "min_qty": 5,
-            "discount": 20,
-            "label": "Choose 5: 20% off",
-            "label_ar": "اختر 5: خصم 20٪"
-          }
-        }
-      },
-      "block_order": ["tier_1", "tier_2"]
-    },
-    "bundle_trust_bar": {
-      "type": "icon-with-text",
-      "settings": {
-        "color_scheme": "background-2",
-        "columns_desktop": 4
-      },
-      "blocks": {
-        "trust_1": {
-          "type": "column",
-          "settings": {
-            "icon": "gift",
-            "heading": "Free Gift at 5 Items",
-            "heading_ar": "هدية مجانية عند 5 منتجات",
-            "text": "Complete your bundle for a bonus gift"
+            "collection": "شوكولاتة-بلجيكية-فاخرة",
+            "collection_tab_label": "Add Some Chocolate",
+            "step_description": "Finest Belgian chocolate to sweeten the bundle.",
+            "product_limit": 12
           }
         },
-        "trust_2": {
-          "type": "column",
+        "cat_sweets": {
+          "type": "collection",
           "settings": {
-            "icon": "truck",
-            "heading": "Free Delivery in Kuwait",
-            "heading_ar": "توصيل مجاني داخل الكويت",
-            "text": "On all orders over 10 KWD"
+            "collection": "حلويات-العيد",
+            "collection_tab_label": "Finish With Sweets",
+            "step_description": "Traditional sweets to complete your bundle.",
+            "product_limit": 12
           }
         },
-        "trust_3": {
-          "type": "column",
-          "settings": {
-            "icon": "return",
-            "heading": "Easy Returns",
-            "heading_ar": "إرجاع سهل",
-            "text": "30-day hassle-free returns"
-          }
-        },
-        "trust_4": {
-          "type": "column",
-          "settings": {
-            "icon": "lock",
-            "heading": "Secure Checkout",
-            "heading_ar": "دفع آمن",
-            "text": "Encrypted payments via Shopify"
-          }
-        }
-      },
-      "block_order": ["trust_1", "trust_2", "trust_3", "trust_4"]
-    },
-    "bundle_faq": {
-      "type": "collapsible-content",
-      "settings": {
-        "caption": "Bundle FAQs",
-        "heading": "Frequently Asked Questions",
-        "heading_ar": "الأسئلة الشائعة",
-        "heading_alignment": "center",
-        "layout": "none",
-        "color_scheme": "background-1",
-        "container_color_scheme": "background-2",
-        "open_first_collapsible_row": false,
-        "image_ratio": "adapt",
-        "desktop_layout": "image_second",
-        "section_padding_top": 36,
-        "section_padding_bottom": 36
-      },
-      "blocks": {
         "faq_1": {
-          "type": "collapsible_row",
+          "type": "faq",
           "settings": {
-            "heading": "How many items can I put in a bundle?",
-            "row_content": "You can select up to 5 items per bundle. The discount applies automatically once you reach the required quantity.",
-            "page": ""
+            "question": "How many products can I add to a bundle?",
+            "question_ar": "كم عدد المنتجات التي يمكنني إضافتها إلى الطقم؟",
+            "answer": "<p>You can add up to 9 products. Discounts apply automatically as you reach 3, 6, and 9 items.</p>",
+            "answer_ar": "<p>يمكنك إضافة حتى 9 منتجات. تُطبَّق الخصومات تلقائياً عند الوصول إلى 3 و6 و9 منتجات.</p>"
           }
         },
         "faq_2": {
-          "type": "collapsible_row",
+          "type": "faq",
           "settings": {
-            "heading": "Can I mix products from different categories?",
-            "row_content": "Yes! You can mix and match any eligible products across all available categories in the bundle picker.",
-            "page": ""
+            "question": "How is the discount applied?",
+            "question_ar": "كيف يُطبَّق الخصم؟",
+            "answer": "<p>Your bundle discount is calculated live as you build, and applied automatically when you add the bundle to your cart.</p>",
+            "answer_ar": "<p>يُحتسب خصم الطقم مباشرةً أثناء البناء، ويُطبَّق تلقائياً عند إضافة الطقم إلى السلة.</p>"
           }
         },
         "faq_3": {
-          "type": "collapsible_row",
+          "type": "faq",
           "settings": {
-            "heading": "How is the discount applied?",
-            "row_content": "The bundle discount code (HOME20) is applied automatically at checkout. You will see the savings reflected in your order total.",
-            "page": ""
+            "question": "Can I mix products from different categories?",
+            "question_ar": "هل يمكنني المزج بين منتجات من أقسام مختلفة؟",
+            "answer": "<p>Yes — mix and match freely across nuts, chocolate, and sweets to build your perfect bundle.</p>",
+            "answer_ar": "<p>نعم — امزج بحرّية بين المكسرات والشوكولاتة والحلويات لبناء طقمك المثالي.</p>"
           }
         },
         "faq_4": {
-          "type": "collapsible_row",
+          "type": "faq",
           "settings": {
-            "heading": "Can I add more than one bundle to my cart?",
-            "row_content": "Absolutely. You can build multiple bundles and add them all to your cart. Each bundle receives the discount independently.",
-            "page": ""
+            "question": "Do you deliver across Kuwait?",
+            "question_ar": "هل تقومون بالتوصيل في جميع أنحاء الكويت؟",
+            "answer": "<p>Yes, we deliver across Kuwait. Delivery is free on orders over 10 KWD.</p>",
+            "answer_ar": "<p>نعم، نوصل إلى جميع أنحاء الكويت. التوصيل مجاني للطلبات فوق 10 د.ك.</p>"
           }
         }
       },
-      "block_order": ["faq_1", "faq_2", "faq_3", "faq_4"]
-    },
-    "bundle_product_recommendations": {
-      "type": "product-recommendations",
-      "settings": {
-        "heading": "Popular Bundle Picks",
-        "heading_ar": "أكثر المنتجات اختياراً في الأطقم",
-        "products_to_show": 8,
-        "columns_desktop": 4,
-        "columns_mobile": 2,
-        "image_ratio": "square",
-        "show_secondary_image": true,
-        "show_vendor": false,
-        "show_rating": false,
-        "color_scheme": "background-1",
-        "section_padding_top": 40,
-        "section_padding_bottom": 60
-      }
+      "block_order": ["cat_nuts", "cat_choc", "cat_sweets", "faq_1", "faq_2", "faq_3", "faq_4"]
     }
   },
-  "order": [
-    "page_hero",
-    "bundle_steps_explainer",
-    "bundle_builder",
-    "bundle_trust_bar",
-    "bundle_faq",
-    "bundle_product_recommendations"
-  ]
+  "order": ["bundle_builder"]
 }

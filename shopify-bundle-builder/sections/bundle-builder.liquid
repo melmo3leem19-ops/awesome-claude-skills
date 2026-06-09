@@ -302,6 +302,68 @@
       </aside>
     </div>
 
+    {%- comment -%} ── How it works ── {%- endcomment -%}
+    {%- if bb.show_how -%}
+      {%- assign how_title = bb.how_title -%}
+      {%- if locale_is_ar and bb.how_title_ar != blank -%}{%- assign how_title = bb.how_title_ar -%}{%- endif -%}
+      <section class="byob-how" aria-label="{{ how_title | escape }}">
+        {%- if how_title != blank -%}<h2 class="byob-how__title">{{ how_title }}</h2>{%- endif -%}
+        <ol class="byob-how__steps">
+          {%- for n in (1..3) -%}
+            {%- assign st = bb['how_' | append: n | append: '_title'] -%}
+            {%- assign sx = bb['how_' | append: n | append: '_text'] -%}
+            {%- if locale_is_ar -%}
+              {%- assign st_ar = bb['how_' | append: n | append: '_title_ar'] -%}
+              {%- assign sx_ar = bb['how_' | append: n | append: '_text_ar'] -%}
+              {%- if st_ar != blank -%}{%- assign st = st_ar -%}{%- endif -%}
+              {%- if sx_ar != blank -%}{%- assign sx = sx_ar -%}{%- endif -%}
+            {%- endif -%}
+            {%- if st != blank or sx != blank -%}
+              <li class="byob-how__step">
+                <span class="byob-how__num" aria-hidden="true">{{ n }}</span>
+                {%- if st != blank -%}<h3 class="byob-how__step-title">{{ st }}</h3>{%- endif -%}
+                {%- if sx != blank -%}<p class="byob-how__step-text">{{ sx }}</p>{%- endif -%}
+              </li>
+            {%- endif -%}
+          {%- endfor -%}
+        </ol>
+      </section>
+    {%- endif -%}
+
+    {%- comment -%} ── FAQ (native accordion, zero-JS) ── {%- endcomment -%}
+    {%- assign faq_count = 0 -%}
+    {%- for block in section.blocks -%}{%- if block.type == 'faq' -%}{%- assign faq_count = faq_count | plus: 1 -%}{%- endif -%}{%- endfor -%}
+    {%- if faq_count > 0 -%}
+      {%- assign faq_heading = bb.faq_heading -%}
+      {%- if locale_is_ar and bb.faq_heading_ar != blank -%}{%- assign faq_heading = bb.faq_heading_ar -%}{%- endif -%}
+      <section class="byob-faq" aria-label="{{ faq_heading | default: 'FAQ' | escape }}">
+        {%- if faq_heading != blank -%}<h2 class="byob-faq__title">{{ faq_heading }}</h2>{%- endif -%}
+        <div class="byob-faq__list">
+          {%- for block in section.blocks -%}
+            {%- if block.type == 'faq' -%}
+              {%- assign q = block.settings.question -%}
+              {%- assign a = block.settings.answer -%}
+              {%- if locale_is_ar -%}
+                {%- if block.settings.question_ar != blank -%}{%- assign q = block.settings.question_ar -%}{%- endif -%}
+                {%- if block.settings.answer_ar != blank -%}{%- assign a = block.settings.answer_ar -%}{%- endif -%}
+              {%- endif -%}
+              {%- if q != blank -%}
+                <details class="byob-faq__item" {{ block.shopify_attributes }}>
+                  <summary class="byob-faq__q">
+                    <span>{{ q }}</span>
+                    <span class="byob-faq__chev" aria-hidden="true">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                  </summary>
+                  <div class="byob-faq__a">{{ a }}</div>
+                </details>
+              {%- endif -%}
+            {%- endif -%}
+          {%- endfor -%}
+        </div>
+      </section>
+    {%- endif -%}
+
     {%- comment -%} ── Mobile bottom bar ── {%- endcomment -%}
     <div class="byob-mobilebar" id="byob-mobilebar-{{ sid }}">
       <div class="byob-mobilebar__top">
@@ -442,9 +504,13 @@
   margin-inline: auto;
   padding-inline: clamp(1rem, 3cqi, 2.5rem);
 }
+.byob-app { display: block; }
+
 @container (max-width: 900px) {
   .byob-grid-wrap { grid-template-columns: 1fr; }
   .byob-rail { display: none; }
+  /* leave room for the fixed mobile bundle bar */
+  .byob-app { padding-block-end: 8rem; }
 }
 
 /* ── Category section ──────────────────────────────────────────────────── */
@@ -701,6 +767,59 @@
 }
 .byob-gift__text { font-size: 0.85rem; font-weight: 700; }
 @keyframes byob-rise { from { transform: translateY(1rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ── How it works ──────────────────────────────────────────────────────── */
+.byob-how {
+  max-width: 1100px;
+  margin: clamp(3rem, 8cqi, 6rem) auto 0;
+  padding-inline: clamp(1rem, 3cqi, 2.5rem);
+}
+.byob-how__title {
+  font-size: clamp(1.6rem, 5cqi, 3rem);
+  font-weight: 800; text-transform: uppercase; text-align: center;
+  letter-spacing: 0.01em; line-height: 1; margin: 0 0 clamp(1.5rem, 4cqi, 3rem);
+}
+.byob-how__steps {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1.25rem, 4cqi, 3rem);
+}
+@container (max-width: 760px) { .byob-how__steps { grid-template-columns: 1fr; max-width: 32rem; margin-inline: auto; } }
+.byob-how__step { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
+.byob-how__num {
+  width: 3rem; height: 3rem; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--byob-accent); color: #fff; font-weight: 800; font-size: 1.2rem;
+}
+.byob-how__step-title { font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; margin: 0.25rem 0 0; }
+.byob-how__step-text { font-size: 0.92rem; line-height: 1.5; color: var(--byob-muted); margin: 0; max-width: 30ch; }
+
+/* ── FAQ ───────────────────────────────────────────────────────────────── */
+.byob-faq {
+  max-width: 760px;
+  margin: clamp(3rem, 8cqi, 6rem) auto 0;
+  padding-inline: clamp(1rem, 3cqi, 2.5rem);
+}
+.byob-faq__title {
+  font-size: clamp(1.6rem, 5cqi, 3rem);
+  font-weight: 800; text-transform: uppercase; text-align: center;
+  letter-spacing: 0.01em; line-height: 1; margin: 0 0 clamp(1.5rem, 4cqi, 2.5rem);
+}
+.byob-faq__list { display: flex; flex-direction: column; }
+.byob-faq__item { border-block-end: 1px solid var(--byob-line); }
+.byob-faq__item:first-child { border-block-start: 1px solid var(--byob-line); }
+.byob-faq__q {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding-block: 1.1rem; font-weight: 700; font-size: 1.02rem; color: var(--byob-ink);
+}
+.byob-faq__q::-webkit-details-marker { display: none; }
+.byob-faq__chev { display: flex; transition: transform .25s ease; color: var(--byob-muted); flex-shrink: 0; }
+.byob-faq__item[open] .byob-faq__chev { transform: rotate(180deg); }
+.byob-faq__a { padding-block: 0 1.1rem; color: var(--byob-ink); line-height: 1.6; font-size: 0.95rem; }
+.byob-faq__a :is(p, ul, ol) { margin-block: 0 0.75rem; }
+@media (prefers-reduced-motion: no-preference) {
+  .byob-faq__item[open] .byob-faq__a { animation: byob-rise .25s ease; }
+}
 
 /* ── Mobile bottom bar ─────────────────────────────────────────────────── */
 .byob-mobilebar { display: none; }
@@ -1163,6 +1282,27 @@ if (!customElements.get('bundle-builder')) customElements.define('bundle-builder
     { "type": "product", "id": "free_gift_product", "label": "Free gift product" },
     { "type": "range", "id": "free_gift_threshold", "label": "Unlock at quantity", "min": 1, "max": 12, "step": 1, "default": 3 },
 
+    { "type": "header", "content": "How it works" },
+    { "type": "checkbox", "id": "show_how", "label": "Show 'How it works'", "default": true },
+    { "type": "text", "id": "how_title", "label": "Heading", "default": "How It Works" },
+    { "type": "text", "id": "how_title_ar", "label": "Heading (Arabic)", "default": "كيف يعمل" },
+    { "type": "text", "id": "how_1_title", "label": "Step 1 title", "default": "Pick Your Products" },
+    { "type": "text", "id": "how_1_title_ar", "label": "Step 1 title (Arabic)", "default": "اختر منتجاتك" },
+    { "type": "textarea", "id": "how_1_text", "label": "Step 1 text", "default": "Browse the categories and add your favourites to the bundle." },
+    { "type": "textarea", "id": "how_1_text_ar", "label": "Step 1 text (Arabic)", "default": "تصفّح الأقسام وأضف مفضلاتك إلى الطقم." },
+    { "type": "text", "id": "how_2_title", "label": "Step 2 title", "default": "Watch The Savings" },
+    { "type": "text", "id": "how_2_title_ar", "label": "Step 2 title (Arabic)", "default": "شاهد توفيرك" },
+    { "type": "textarea", "id": "how_2_text", "label": "Step 2 text", "default": "The more you add, the bigger your discount — plus a free mini at 3+." },
+    { "type": "textarea", "id": "how_2_text_ar", "label": "Step 2 text (Arabic)", "default": "كلما أضفت أكثر زاد خصمك — مع هدية مجانية عند 3 منتجات." },
+    { "type": "text", "id": "how_3_title", "label": "Step 3 title", "default": "Add To Cart" },
+    { "type": "text", "id": "how_3_title_ar", "label": "Step 3 title (Arabic)", "default": "أضف إلى السلة" },
+    { "type": "textarea", "id": "how_3_text", "label": "Step 3 text", "default": "Add your finished bundle to the cart — your discount is applied automatically." },
+    { "type": "textarea", "id": "how_3_text_ar", "label": "Step 3 text (Arabic)", "default": "أضف طقمك المكتمل إلى السلة — يُطبَّق الخصم تلقائياً." },
+
+    { "type": "header", "content": "FAQ" },
+    { "type": "text", "id": "faq_heading", "label": "FAQ heading", "default": "Frequently Asked Questions" },
+    { "type": "text", "id": "faq_heading_ar", "label": "FAQ heading (Arabic)", "default": "الأسئلة الشائعة" },
+
     { "type": "header", "content": "Colors" },
     { "type": "color", "id": "color_bg", "label": "Background", "default": "#f1f0ec" },
     { "type": "color", "id": "color_text", "label": "Text", "default": "#141414" },
@@ -1209,6 +1349,16 @@ if (!customElements.get('bundle-builder')) customElements.define('bundle-builder
         { "type": "text", "id": "label", "label": "Label" },
         { "type": "text", "id": "label_ar", "label": "Label (Arabic)" }
       ]
+    },
+    {
+      "type": "faq",
+      "name": "FAQ Item",
+      "settings": [
+        { "type": "text", "id": "question", "label": "Question" },
+        { "type": "text", "id": "question_ar", "label": "Question (Arabic)" },
+        { "type": "richtext", "id": "answer", "label": "Answer" },
+        { "type": "richtext", "id": "answer_ar", "label": "Answer (Arabic)" }
+      ]
     }
   ],
   "presets": [
@@ -1217,7 +1367,10 @@ if (!customElements.get('bundle-builder')) customElements.define('bundle-builder
       "blocks": [
         { "type": "collection" },
         { "type": "collection" },
-        { "type": "collection" }
+        { "type": "collection" },
+        { "type": "faq" },
+        { "type": "faq" },
+        { "type": "faq" }
       ]
     }
   ]
