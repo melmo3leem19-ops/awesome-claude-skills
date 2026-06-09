@@ -1,81 +1,103 @@
+{%- comment -%}
+  ═══════════════════════════════════════════════════════════════════════════
+  BUNDLE BUILDER — "Build Your Own Bundle" (OUAI-inspired)
+  Al Moallem Mill · Kuwait · KWD · Arabic (RTL) + English (LTR)
+
+  Design language mirrors theouai.com/pages/build-your-own-bundle:
+    · light warm-grey canvas, huge bold uppercase section headings
+    · long-scroll category sections (one heading + product grid each)
+    · image-forward product cards with a black circular "+" add button
+    · a sticky vertical "bundle rail" of circular slots on the right
+      (filled = product thumb in a dashed ring + trash button, empty = white)
+    · the rail collapses to a horizontal pill on mobile
+    · "save X% + free mini at N items" reward messaging
+  ═══════════════════════════════════════════════════════════════════════════
+{%- endcomment -%}
+
 {%- liquid
   assign bb = section.settings
-  assign bundle_type = bb.bundle_type | default: 'mix_match'
-  assign is_wizard = false
-  if bundle_type == 'wizard'
-    assign is_wizard = true
-  endif
-  assign is_tiered = false
-  if bundle_type == 'tiered'
-    assign is_tiered = true
-  endif
+  assign sid = section.id
+
   assign locale_dir = 'ltr'
   assign locale_is_ar = false
   if request.locale.iso_code == 'ar'
     assign locale_dir = 'rtl'
     assign locale_is_ar = true
   endif
-  assign min_qty = bb.min_products | default: 1
+
+  assign min_qty = bb.min_products | default: 3
   assign max_qty = bb.max_products | default: 6
-  assign section_id = section.id
+
+  assign heading = bb.title
+  assign subheading = bb.subtitle
+  if locale_is_ar and bb.title_ar != blank
+    assign heading = bb.title_ar
+  endif
+  if locale_is_ar and bb.subtitle_ar != blank
+    assign subheading = bb.subtitle_ar
+  endif
 -%}
 
-{%- comment -%} ── Metaobject config override ──────────────────────────────── {%- endcomment -%}
-{%- if bb.metaobject_id != blank -%}
-  {%- assign mo = shop.metaobjects[bb.metaobject_id] -%}
-  {%- if mo != nil -%}
-    {%- assign bundle_type   = mo.bundle_type.value   | default: bundle_type -%}
-    {%- assign min_qty       = mo.min_products.value  | default: min_qty -%}
-    {%- assign max_qty       = mo.max_products.value  | default: max_qty -%}
+{%- comment -%} ── Tiers JSON (tier_discount blocks override section settings) ── {%- endcomment -%}
+{%- assign has_tier_blocks = false -%}
+{%- for block in section.blocks -%}
+  {%- if block.type == 'tier_discount' and block.settings.min_qty > 0 -%}
+    {%- assign has_tier_blocks = true -%}
   {%- endif -%}
-{%- endif -%}
+{%- endfor -%}
 
-{%- comment -%} ── Tiers JSON for JS ────────────────────────────────────────── {%- endcomment -%}
 {%- capture tiers_json -%}
 [
-  {%- if bb.tier_1_qty > 0 -%}{"qty":{{ bb.tier_1_qty }},"discount":{{ bb.tier_1_discount }},"label":{{ bb.tier_1_label | default: '' | json }},"color":{{ bb.color_tier_1 | default: '#2ecc71' | json }}}{%- endif -%}
-  {%- if bb.tier_2_qty > 0 -%},{"qty":{{ bb.tier_2_qty }},"discount":{{ bb.tier_2_discount }},"label":{{ bb.tier_2_label | default: '' | json }},"color":{{ bb.color_tier_2 | default: '#3498db' | json }}}{%- endif -%}
-  {%- if bb.tier_3_qty > 0 -%},{"qty":{{ bb.tier_3_qty }},"discount":{{ bb.tier_3_discount }},"label":{{ bb.tier_3_label | default: '' | json }},"color":"#9b59b6"}{%- endif -%}
-  {%- if bb.tier_4_qty > 0 -%},{"qty":{{ bb.tier_4_qty }},"discount":{{ bb.tier_4_discount }},"label":{{ bb.tier_4_label | default: '' | json }},"color":"#e67e22"}{%- endif -%}
-  {%- if bb.tier_5_qty > 0 -%},{"qty":{{ bb.tier_5_qty }},"discount":{{ bb.tier_5_discount }},"label":{{ bb.tier_5_label | default: '' | json }},"color":"#e74c3c"}{%- endif -%}
+{%- assign first = true -%}
+{%- if has_tier_blocks -%}
+  {%- for block in section.blocks -%}
+    {%- if block.type == 'tier_discount' and block.settings.min_qty > 0 -%}
+      {%- unless first %},{% endunless -%}{%- assign first = false -%}
+      {%- assign tlabel = block.settings.label -%}
+      {%- if locale_is_ar and block.settings.label_ar != blank -%}{%- assign tlabel = block.settings.label_ar -%}{%- endif -%}
+      {"qty":{{ block.settings.min_qty }},"discount":{{ block.settings.discount | default: 0 }},"label":{{ tlabel | default: '' | json }}}
+    {%- endif -%}
+  {%- endfor -%}
+{%- else -%}
+  {%- if bb.tier_1_qty > 0 -%}{%- unless first %},{% endunless -%}{%- assign first = false -%}{"qty":{{ bb.tier_1_qty }},"discount":{{ bb.tier_1_discount | default: 0 }},"label":{{ bb.tier_1_label | default: '' | json }}}{%- endif -%}
+  {%- if bb.tier_2_qty > 0 -%}{%- unless first %},{% endunless -%}{%- assign first = false -%}{"qty":{{ bb.tier_2_qty }},"discount":{{ bb.tier_2_discount | default: 0 }},"label":{{ bb.tier_2_label | default: '' | json }}}{%- endif -%}
+  {%- if bb.tier_3_qty > 0 -%}{%- unless first %},{% endunless -%}{%- assign first = false -%}{"qty":{{ bb.tier_3_qty }},"discount":{{ bb.tier_3_discount | default: 0 }},"label":{{ bb.tier_3_label | default: '' | json }}}{%- endif -%}
+{%- endif -%}
 ]
 {%- endcapture -%}
 
-{%- comment -%} ── Free gift product JSON ───────────────────────────────────── {%- endcomment -%}
+{%- comment -%} ── Free gift JSON ── {%- endcomment -%}
 {%- if bb.enable_free_gift and bb.free_gift_product != blank -%}
-  {%- assign fg_product = bb.free_gift_product -%}
-  {%- capture free_gift_json -%}{"id":{{ fg_product.variants.first.id }},"title":{{ fg_product.title | json }},"image":{{ fg_product.featured_image | image_url: width: 200 | json }},"threshold":{{ bb.free_gift_threshold | default: 5 }}}{%- endcapture -%}
+  {%- assign fg = bb.free_gift_product -%}
+  {%- capture free_gift_json -%}{"id":{{ fg.variants.first.id }},"title":{{ fg.title | json }},"image":{{ fg.featured_image | image_url: width: 160 | json }},"threshold":{{ bb.free_gift_threshold | default: 3 }}}{%- endcapture -%}
 {%- else -%}
   {%- assign free_gift_json = 'null' -%}
 {%- endif -%}
 
-{%- comment -%} ── Timer end date ───────────────────────────────────────────── {%- endcomment -%}
-{%- assign timer_end = bb.timer_end_date | default: '' -%}
+{%- assign marquee = bb.marquee_text -%}
+{%- if locale_is_ar and bb.marquee_text_ar != blank -%}{%- assign marquee = bb.marquee_text_ar -%}{%- endif -%}
 
 <section
-  id="bundle-builder-{{ section_id }}"
-  class="bundle-builder-section"
-  data-section-id="{{ section_id }}"
+  id="bundle-builder-{{ sid }}"
+  class="byob"
   dir="{{ locale_dir }}"
-  aria-label="{%- if locale_is_ar -%}أداة بناء الطقم{%- else -%}Bundle Builder{%- endif -%}"
+  data-section-id="{{ sid }}"
+  style="--byob-pt:{{ bb.section_padding_top | default: 24 }}px;--byob-pb:{{ bb.section_padding_bottom | default: 64 }}px;"
+  aria-label="{%- if locale_is_ar -%}أنشئ طقمك{%- else -%}Build your own bundle{%- endif -%}"
 >
 
-  {%- comment -%} ── Countdown Timer ──────────────────────────────────────── {%- endcomment -%}
-  {%- if bb.show_timer and timer_end != blank -%}
-  <div class="bb-timer-bar" role="timer" aria-live="polite" data-end="{{ timer_end }}">
-    <span class="bb-timer-label">{%- if locale_is_ar -%}ينتهي العرض خلال{%- else -%}Offer ends in{%- endif -%}</span>
-    <span class="bb-timer-display">
-      <span class="bb-timer-unit" data-unit="days">00</span><span class="bb-timer-sep">d</span>
-      <span class="bb-timer-unit" data-unit="hours">00</span><span class="bb-timer-sep">h</span>
-      <span class="bb-timer-unit" data-unit="minutes">00</span><span class="bb-timer-sep">m</span>
-      <span class="bb-timer-unit" data-unit="seconds">00</span><span class="bb-timer-sep">s</span>
-    </span>
+  {%- comment -%} ── Scrolling marquee (optional) ── {%- endcomment -%}
+  {%- if marquee != blank -%}
+  <div class="byob-marquee" aria-hidden="true">
+    <div class="byob-marquee__track">
+      {%- for i in (1..6) -%}<span class="byob-marquee__item">{{ marquee }}</span>{%- endfor -%}
+    </div>
   </div>
   {%- endif -%}
 
   <bundle-builder
-    data-section-id="{{ section_id }}"
-    data-bundle-type="{{ bundle_type }}"
+    class="byob-app"
+    data-section-id="{{ sid }}"
     data-min="{{ min_qty }}"
     data-max="{{ max_qty }}"
     data-currency="{{ shop.currency }}"
@@ -83,3806 +105,1056 @@
     data-dir="{{ locale_dir }}"
     data-tiers="{{ tiers_json | escape }}"
     data-free-gift="{{ free_gift_json | escape }}"
-    data-filter-tags="{{ bb.filter_by_tag | default: '' | escape }}"
-    data-filter-vendors="{{ bb.filter_by_vendor | default: '' | escape }}"
-    data-wizard-animation="{{ bb.wizard_step_animation | default: 'slide' }}"
-    data-metaobject-id="{{ bb.metaobject_id | default: '' }}"
-    class="bundle-builder bundle-builder--{{ bundle_type }}{% if is_wizard %} bundle-builder--wizard{% endif %}"
-    role="main"
+    data-redirect="{{ bb.redirect_to_cart | default: false }}"
   >
 
-    {%- comment -%} ── Section header ───────────────────────────────────────── {%- endcomment -%}
-    <header class="bb-header">
-      <div class="bb-header__inner">
-        {%- if bb.show_bundle_type_badge -%}
-          <span class="bb-type-badge bb-type-badge--{{ bundle_type }}">
-            {{ bb.bundle_type_badge_label | default: bundle_type | replace: '_', ' ' | capitalize }}
-          </span>
+    {%- comment -%} ── Hero ── {%- endcomment -%}
+    <header class="byob-hero">
+      {%- if heading != blank -%}
+        <h1 class="byob-hero__title">{{ heading }}</h1>
+      {%- endif -%}
+      {%- if subheading != blank -%}
+        <p class="byob-hero__sub">{{ subheading }}</p>
+      {%- endif -%}
+      <p class="byob-hero__reward" data-reward>
+        {%- if locale_is_ar -%}
+          ابدأ بإضافة المنتجات لبناء طقمك.
+        {%- else -%}
+          Start adding products to build your bundle.
         {%- endif -%}
-        {%- if bb.heading != blank -%}
-          <h2 class="bb-heading">{{ bb.heading }}</h2>
-        {%- endif -%}
-        {%- if bb.subheading != blank -%}
-          <p class="bb-subheading">{{ bb.subheading }}</p>
-        {%- endif -%}
-      </div>
+      </p>
     </header>
 
-    {%- comment -%} ── Tiered discount bar ──────────────────────────────────── {%- endcomment -%}
-    {%- if is_tiered or bb.tier_1_qty > 0 -%}
-    <div class="bb-tier-bar" role="group" aria-label="{%- if locale_is_ar -%}مستويات الخصم{%- else -%}Discount tiers{%- endif -%}">
-      {%- if bb.tier_1_qty > 0 -%}
-      <div class="bb-tier-badge" data-qty="{{ bb.tier_1_qty }}" data-discount="{{ bb.tier_1_discount }}" style="--tier-color:{{ bb.color_tier_1 | default: '#2ecc71' }}">
-        <span class="bb-tier-badge__qty">{{ bb.tier_1_qty }}+</span>
-        <span class="bb-tier-badge__pct">{{ bb.tier_1_discount }}%</span>
-        <span class="bb-tier-badge__label">{{ bb.tier_1_label | default: 'off' }}</span>
-      </div>
-      {%- endif -%}
-      {%- if bb.tier_2_qty > 0 -%}
-      <div class="bb-tier-badge" data-qty="{{ bb.tier_2_qty }}" data-discount="{{ bb.tier_2_discount }}" style="--tier-color:{{ bb.color_tier_2 | default: '#3498db' }}">
-        <span class="bb-tier-badge__qty">{{ bb.tier_2_qty }}+</span>
-        <span class="bb-tier-badge__pct">{{ bb.tier_2_discount }}%</span>
-        <span class="bb-tier-badge__label">{{ bb.tier_3_label | default: 'off' }}</span>
-      </div>
-      {%- endif -%}
-      {%- if bb.tier_3_qty > 0 -%}
-      <div class="bb-tier-badge" data-qty="{{ bb.tier_3_qty }}" data-discount="{{ bb.tier_3_discount }}" style="--tier-color:#9b59b6">
-        <span class="bb-tier-badge__qty">{{ bb.tier_3_qty }}+</span>
-        <span class="bb-tier-badge__pct">{{ bb.tier_3_discount }}%</span>
-        <span class="bb-tier-badge__label">{{ bb.tier_3_label | default: 'off' }}</span>
-      </div>
-      {%- endif -%}
-      {%- if bb.tier_4_qty > 0 -%}
-      <div class="bb-tier-badge" data-qty="{{ bb.tier_4_qty }}" data-discount="{{ bb.tier_4_discount }}" style="--tier-color:#e67e22">
-        <span class="bb-tier-badge__qty">{{ bb.tier_4_qty }}+</span>
-        <span class="bb-tier-badge__pct">{{ bb.tier_4_discount }}%</span>
-        <span class="bb-tier-badge__label">{{ bb.tier_4_label | default: 'off' }}</span>
-      </div>
-      {%- endif -%}
-      {%- if bb.tier_5_qty > 0 -%}
-      <div class="bb-tier-badge" data-qty="{{ bb.tier_5_qty }}" data-discount="{{ bb.tier_5_discount }}" style="--tier-color:#e74c3c">
-        <span class="bb-tier-badge__qty">{{ bb.tier_5_qty }}+</span>
-        <span class="bb-tier-badge__pct">{{ bb.tier_5_discount }}%</span>
-        <span class="bb-tier-badge__label">{{ bb.tier_5_label | default: 'off' }}</span>
-      </div>
-      {%- endif -%}
-    </div>
-    {%- endif -%}
+    <div class="byob-grid-wrap">
 
-    {%- comment -%} ── Free gift banner (hidden until threshold reached) ────── {%- endcomment -%}
-    {%- if bb.enable_free_gift and bb.free_gift_product != blank -%}
-    <div class="bb-free-gift-banner" hidden aria-live="polite">
-      <div class="bb-free-gift-banner__inner">
-        <span class="bb-free-gift-banner__icon" aria-hidden="true">🎁</span>
-        <span class="bb-free-gift-banner__text">
-          {%- if locale_is_ar -%}لقد حصلت على هدية مجانية!{%- else -%}You've unlocked a free gift!{%- endif -%}
-        </span>
-        <div class="bb-free-gift-product">
-          {%- assign fg = bb.free_gift_product -%}
-          <img
-            src="{{ fg.featured_image | image_url: width: 60 }}"
-            alt="{{ fg.title | escape }}"
-            width="60" height="60"
-            loading="lazy"
-          >
-          <span>{{ fg.title }}</span>
-        </div>
-      </div>
-    </div>
-    {%- endif -%}
-
-    {%- comment -%} ── Wizard step indicator ────────────────────────────────── {%- endcomment -%}
-    {%- if is_wizard -%}
-    <nav class="bb-wizard-nav" aria-label="{%- if locale_is_ar -%}خطوات الطقم{%- else -%}Bundle steps{%- endif -%}">
-      <div class="bb-wizard-steps" id="bb-wizard-steps-{{ section_id }}">
-        {%- assign step_index = 0 -%}
+      {%- comment -%} ── Main scroll column ── {%- endcomment -%}
+      <div class="byob-main">
+        {%- assign panel_index = 0 -%}
         {%- for block in section.blocks -%}
           {%- if block.type == 'collection' -%}
-            {%- assign step_index = step_index | plus: 1 -%}
-            <button
-              class="bb-wizard-step-btn{% if step_index == 1 %} is-active{% endif %}"
-              data-step="{{ step_index }}"
-              aria-selected="{% if step_index == 1 %}true{% else %}false{% endif %}"
-              aria-controls="bb-step-panel-{{ step_index }}-{{ section_id }}"
-              type="button"
-            >
-              <span class="bb-wizard-step-btn__number" aria-hidden="true">{{ step_index }}</span>
-              <span class="bb-wizard-step-btn__label">
-                {{ block.settings.collection_tab_label | default: block.settings.collection.title | default: 'Step' }}
-              </span>
-              <span class="bb-wizard-step-btn__check" aria-hidden="true">✓</span>
-            </button>
-          {%- endif -%}
-        {%- endfor -%}
-      </div>
-      <div class="bb-wizard-progress-text" aria-live="polite">
-        <span class="bb-wizard-step-current">1</span>
-        {%- if locale_is_ar -%}من{%- else -%}of{%- endif -%}
-        <span class="bb-wizard-step-total">{{ step_index }}</span>
-      </div>
-    </nav>
-    {%- endif -%}
+            {%- assign panel_index = panel_index | plus: 1 -%}
+            {%- assign blk = block.settings -%}
+            {%- assign col = blk.collection -%}
+            {%- assign p_limit = blk.product_limit | default: 24 -%}
 
-    {%- comment -%} ── Main layout: picker + sidebar ────────────────────────── {%- endcomment -%}
-    <div class="bb-layout">
+            {%- assign cat_title = blk.collection_tab_label | default: col.title | default: 'Products' -%}
 
-      {%- comment -%} ── Product picker panel ─────────────────────────────── {%- endcomment -%}
-      <div class="bb-picker">
-
-        {%- comment -%} ── Search bar ───────────────────────────────────────── {%- endcomment -%}
-        {%- if bb.enable_search -%}
-        <div class="bb-search-bar">
-          <label for="bb-search-{{ section_id }}" class="visually-hidden">
-            {%- if locale_is_ar -%}ابحث عن المنتجات{%- else -%}Search products{%- endif -%}
-          </label>
-          <input
-            type="search"
-            id="bb-search-{{ section_id }}"
-            class="bb-search-input"
-            placeholder="{%- if locale_is_ar -%}ابحث عن المنتجات…{%- else -%}Search products…{%- endif -%}"
-            autocomplete="off"
-            aria-controls="bb-product-grid-{{ section_id }}"
-          >
-          <span class="bb-search-icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          </span>
-        </div>
-        {%- endif -%}
-
-        {%- comment -%} ── Collection tabs (non-wizard) / Step panels (wizard) ─ {%- endcomment -%}
-        {%- assign has_collections = false -%}
-        {%- for block in section.blocks -%}
-          {%- if block.type == 'collection' -%}
-            {%- assign has_collections = true -%}
-          {%- endif -%}
-        {%- endfor -%}
-
-        {%- if has_collections -%}
-          {%- unless is_wizard -%}
-          <div class="bb-tabs" role="tablist" aria-label="{%- if locale_is_ar -%}أقسام المنتجات{%- else -%}Product collections{%- endif -%}">
-            {%- assign tab_index = 0 -%}
-            {%- for block in section.blocks -%}
-              {%- if block.type == 'collection' -%}
-                {%- assign tab_index = tab_index | plus: 1 -%}
-                <button
-                  class="bb-tab{% if tab_index == 1 %} is-active{% endif %}"
-                  role="tab"
-                  data-tab="{{ tab_index }}"
-                  aria-selected="{% if tab_index == 1 %}true{% else %}false{% endif %}"
-                  aria-controls="bb-panel-{{ tab_index }}-{{ section_id }}"
-                  id="bb-tab-{{ tab_index }}-{{ section_id }}"
-                  type="button"
-                  {{ block.shopify_attributes }}
-                >
-                  {%- if block.settings.tab_icon != blank -%}
-                    <span class="bb-tab__icon" aria-hidden="true">{{ block.settings.tab_icon }}</span>
-                  {%- endif -%}
-                  {{ block.settings.collection_tab_label | default: block.settings.collection.title | default: 'Collection' }}
-                </button>
+            <section class="byob-cat" data-panel="{{ panel_index }}" {{ block.shopify_attributes }}>
+              <h2 class="byob-cat__title">{{ cat_title }}</h2>
+              {%- if blk.step_description != blank -%}
+                <p class="byob-cat__desc">{{ blk.step_description }}</p>
               {%- endif -%}
-            {%- endfor -%}
-          </div>
-          {%- endunless -%}
 
-          <div class="bb-collections-wrapper" id="bb-product-grid-{{ section_id }}">
-            {%- assign panel_index = 0 -%}
-            {%- for block in section.blocks -%}
-              {%- if block.type == 'collection' -%}
-                {%- assign panel_index = panel_index | plus: 1 -%}
-                {%- assign blk = block.settings -%}
-                {%- assign col = blk.collection -%}
-                {%- assign p_limit = blk.product_limit | default: 50 -%}
-                {%- assign allow_tags   = blk.allow_tag_filter | default: bb.filter_by_tag -%}
-                {%- assign allow_vendors = blk.allow_vendor_filter | default: bb.filter_by_vendor -%}
+              <div class="byob-cards">
+                {%- assign shown = 0 -%}
+                {%- for product in col.products limit: p_limit -%}
+                  {%- assign v = product.variants.first -%}
+                  {%- assign multi = false -%}
+                  {%- if product.variants.size > 1 -%}{%- assign multi = true -%}{%- endif -%}
+                  {%- assign desc = product.description | strip_html | truncatewords: 26 -%}
 
-                {%- comment -%} Build required product ID list for this block {%- endcomment -%}
-                {%- assign req_ids = '' -%}
-                {%- for block2 in section.blocks -%}
-                  {%- if block2.type == 'required_product' and block2.settings.step_ref == panel_index -%}
-                    {%- assign req_ids = req_ids | append: block2.settings.product.id | append: ',' -%}
-                  {%- endif -%}
+                  <article
+                    class="byob-card"
+                    data-product-id="{{ product.id }}"
+                    data-variant-id="{{ v.id }}"
+                    data-title="{{ product.title | escape }}"
+                    data-price="{{ v.price }}"
+                    data-handle="{{ product.handle }}"
+                    data-available="{{ v.available }}"
+                    data-panel="{{ panel_index }}"
+                  >
+                    <div class="byob-card__media">
+                      {%- if product.featured_image -%}
+                        <img
+                          class="byob-card__img"
+                          src="{{ product.featured_image | image_url: width: 600 }}"
+                          alt="{{ product.featured_image.alt | default: product.title | escape }}"
+                          width="600" height="600" loading="lazy"
+                        >
+                      {%- else -%}
+                        <div class="byob-card__noimg" aria-hidden="true">{{ shop.name | slice: 0, 1 | upcase }}</div>
+                      {%- endif -%}
+
+                      {%- unless v.available -%}
+                        <span class="byob-card__soldout">{%- if locale_is_ar -%}نفدت الكمية{%- else -%}Sold out{%- endif -%}</span>
+                      {%- endunless -%}
+
+                      <button
+                        class="byob-card__add"
+                        type="button"
+                        data-action="add"
+                        data-variant-id="{{ v.id }}"
+                        data-product-id="{{ product.id }}"
+                        aria-label="{%- if locale_is_ar -%}أضف إلى الطقم{%- else -%}Add to bundle{%- endif -%}: {{ product.title | escape }}"
+                        {% unless v.available %}disabled aria-disabled="true"{% endunless %}
+                      >
+                        <svg class="byob-card__add-plus" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span class="byob-card__add-count" data-count hidden>0</span>
+                      </button>
+                    </div>
+
+                    <div class="byob-card__body">
+                      <h3 class="byob-card__title">{{ product.title }}</h3>
+                      <p class="byob-card__price">{{ v.price | money }}</p>
+
+                      {%- if multi -%}
+                      <select class="byob-card__variant" data-variant-select aria-label="{%- if locale_is_ar -%}اختر الخيار{%- else -%}Select option{%- endif -%}">
+                        {%- for variant in product.variants -%}
+                          <option value="{{ variant.id }}" data-price="{{ variant.price }}" data-available="{{ variant.available }}" {% unless variant.available %}disabled{% endunless %}>{{ variant.title }} — {{ variant.price | money }}</option>
+                        {%- endfor -%}
+                      </select>
+                      {%- endif -%}
+
+                      {%- if desc != blank -%}
+                        <p class="byob-card__desc">{{ desc }}</p>
+                      {%- endif -%}
+                    </div>
+                  </article>
+                  {%- assign shown = shown | plus: 1 -%}
                 {%- endfor -%}
 
-                <div
-                  class="bb-panel{% if is_wizard %} bb-step-panel{% endif %}{% if panel_index == 1 %} is-active{% endif %}"
-                  id="{% if is_wizard %}bb-step-panel-{{ panel_index }}-{{ section_id }}{% else %}bb-panel-{{ panel_index }}-{{ section_id }}{% endif %}"
-                  role="{% if is_wizard %}region{% else %}tabpanel{% endif %}"
-                  aria-labelledby="{% unless is_wizard %}bb-tab-{{ panel_index }}-{{ section_id }}{% endunless %}"
-                  data-panel="{{ panel_index }}"
-                  data-step-min="{{ blk.step_min_qty | default: 1 }}"
-                  data-step-max="{{ blk.step_max_qty | default: max_qty }}"
-                  data-required-ids="{{ req_ids | remove_last: ',' }}"
-                  data-allow-tags="{{ allow_tags | escape }}"
-                  data-allow-vendors="{{ allow_vendors | escape }}"
-                  {{ block.shopify_attributes }}
-                >
-                  {%- if is_wizard -%}
-                  <div class="bb-step-header">
-                    <h3 class="bb-step-title">
-                      {{ blk.collection_tab_label | default: col.title | default: 'Step' }}
-                    </h3>
-                    {%- if blk.step_description != blank -%}
-                      <p class="bb-step-description">{{ blk.step_description }}</p>
-                    {%- endif -%}
-                  </div>
-                  {%- endif -%}
-
-                  {%- if blk.show_collection_image and col.image -%}
-                  <div class="bb-collection-hero">
-                    <img
-                      src="{{ col.image | image_url: width: 900 }}"
-                      alt="{{ col.title | escape }}"
-                      loading="lazy"
-                      width="900"
-                      height="300"
-                      class="bb-collection-hero__img"
-                    >
-                  </div>
-                  {%- endif -%}
-
-                  <div
-                    class="bb-product-grid"
-                    style="--bb-cols-desktop:{{ blk.desktop_columns | default: bb.desktop_columns | default: 3 }};--bb-cols-mobile:{{ blk.mobile_columns | default: bb.mobile_columns | default: 2 }}"
-                  >
-                    {%- assign products_shown = 0 -%}
-                    {%- for product in col.products limit: p_limit -%}
-
-                      {%- comment -%} Tag / vendor filter ─────────────────────── {%- endcomment -%}
-                      {%- assign tag_ok = true -%}
-                      {%- if allow_tags != blank -%}
-                        {%- assign filter_tags = allow_tags | split: ',' -%}
-                        {%- assign tag_ok = false -%}
-                        {%- for ft in filter_tags -%}
-                          {%- assign ft_clean = ft | strip -%}
-                          {%- if product.tags contains ft_clean -%}
-                            {%- assign tag_ok = true -%}
-                          {%- endif -%}
-                        {%- endfor -%}
-                      {%- endif -%}
-
-                      {%- assign vendor_ok = true -%}
-                      {%- if allow_vendors != blank -%}
-                        {%- assign filter_vendors = allow_vendors | split: ',' -%}
-                        {%- assign vendor_ok = false -%}
-                        {%- for fv in filter_vendors -%}
-                          {%- assign fv_clean = fv | strip -%}
-                          {%- if product.vendor == fv_clean -%}
-                            {%- assign vendor_ok = true -%}
-                          {%- endif -%}
-                        {%- endfor -%}
-                      {%- endif -%}
-
-                      {%- unless tag_ok and vendor_ok -%}{%- continue -%}{%- endunless -%}
-
-                      {%- assign is_required = false -%}
-                      {%- if req_ids contains product.id -%}
-                        {%- assign is_required = true -%}
-                      {%- endif -%}
-
-                      {%- assign first_variant = product.variants.first -%}
-                      {%- assign has_multiple_variants = false -%}
-                      {%- if product.variants.size > 1 -%}
-                        {%- assign has_multiple_variants = true -%}
-                      {%- endif -%}
-
-                      <div
-                        class="bb-product-card{% if is_required %} is-required{% endif %}"
-                        data-product-id="{{ product.id }}"
-                        data-variant-id="{{ first_variant.id }}"
-                        data-title="{{ product.title | escape }}"
-                        data-price="{{ first_variant.price }}"
-                        data-handle="{{ product.handle }}"
-                        data-available="{{ first_variant.available }}"
-                        data-required="{{ is_required }}"
-                        data-has-variants="{{ has_multiple_variants }}"
-                        data-panel="{{ panel_index }}"
-                        tabindex="0"
-                        role="article"
-                        aria-label="{{ product.title | escape }}"
-                      >
-                        <div class="bb-product-card__image-wrap">
-                          {%- if product.featured_image -%}
-                            <img
-                              src="{{ product.featured_image | image_url: width: 400 }}"
-                              alt="{{ product.featured_image.alt | default: product.title | escape }}"
-                              loading="lazy"
-                              width="400"
-                              height="400"
-                              class="bb-product-card__img"
-                            >
-                          {%- else -%}
-                            <div class="bb-product-card__no-image" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 9 6 6m0-6-6 6"/></svg>
-                            </div>
-                          {%- endif -%}
-
-                          {%- unless first_variant.available -%}
-                            <div class="bb-product-card__sold-out" aria-label="{%- if locale_is_ar -%}نفدت الكمية{%- else -%}Sold out{%- endif -%}">
-                              {%- if locale_is_ar -%}نفدت الكمية{%- else -%}Sold out{%- endif -%}
-                            </div>
-                          {%- endunless -%}
-
-                          {%- if is_required -%}
-                            <div class="bb-product-card__required-badge">
-                              {%- if locale_is_ar -%}إلزامي{%- else -%}Required{%- endif -%}
-                            </div>
-                          {%- endif -%}
-
-                          <button
-                            class="bb-product-card__quick-view"
-                            data-product-handle="{{ product.handle }}"
-                            data-product-url="{{ product.url }}"
-                            aria-label="{%- if locale_is_ar -%}عرض سريع{%- else -%}Quick view{%- endif -%} {{ product.title | escape }}"
-                            type="button"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                          </button>
-
-                          {%- comment -%} Selected checkmark overlay ─────────── {%- endcomment -%}
-                          <div class="bb-product-card__checkmark" aria-hidden="true">
-                            <span class="bb-product-card__checkmark-icon">
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                            </span>
-                          </div>
-                        </div>
-
-                        <div class="bb-product-card__info">
-                          <p class="bb-product-card__vendor">{{ product.vendor }}</p>
-                          <h3 class="bb-product-card__title">{{ product.title }}</h3>
-
-                          <div class="bb-product-card__price-row">
-                            <span class="bb-product-card__price" data-price="{{ first_variant.price }}">
-                              {{ first_variant.price | money }}
-                            </span>
-                            {%- if first_variant.compare_at_price > first_variant.price -%}
-                              <s class="bb-product-card__compare-price">{{ first_variant.compare_at_price | money }}</s>
-                            {%- endif -%}
-                          </div>
-
-                          {%- if has_multiple_variants -%}
-                          <div class="bb-product-card__variant-select-wrap">
-                            <select
-                              class="bb-product-card__variant-select"
-                              aria-label="{%- if locale_is_ar -%}اختر الخيار{%- else -%}Select variant{%- endif -%}"
-                              data-product-id="{{ product.id }}"
-                            >
-                              {%- for variant in product.variants -%}
-                                <option
-                                  value="{{ variant.id }}"
-                                  data-price="{{ variant.price }}"
-                                  data-available="{{ variant.available }}"
-                                  {% unless variant.available %}disabled{% endunless %}
-                                >
-                                  {{ variant.title }} — {{ variant.price | money }}
-                                </option>
-                              {%- endfor -%}
-                            </select>
-                          </div>
-                          {%- endif -%}
-
-                          <div class="bb-product-card__actions">
-                            <button
-                              class="bb-product-card__add-btn"
-                              data-action="add"
-                              data-product-id="{{ product.id }}"
-                              data-variant-id="{{ first_variant.id }}"
-                              aria-label="{%- if locale_is_ar -%}أضف إلى الطقم{%- else -%}Add to bundle{%- endif -%}: {{ product.title | escape }}"
-                              type="button"
-                              {% unless first_variant.available %}disabled aria-disabled="true"{% endunless %}
-                            >
-                              <span class="bb-btn-icon" aria-hidden="true">+</span>
-                              <span class="bb-btn-label">{%- if locale_is_ar -%}أضف{%- else -%}Add{%- endif -%}</span>
-                            </button>
-                            <button
-                              class="bb-product-card__qty-btn bb-product-card__qty-btn--minus"
-                              data-action="remove"
-                              data-product-id="{{ product.id }}"
-                              data-variant-id="{{ first_variant.id }}"
-                              aria-label="{%- if locale_is_ar -%}إزالة من الطقم{%- else -%}Remove from bundle{%- endif -%}: {{ product.title | escape }}"
-                              type="button"
-                              hidden
-                            >−</button>
-                            <span
-                              class="bb-product-card__qty-display"
-                              aria-live="polite"
-                              aria-label="{%- if locale_is_ar -%}الكمية في الطقم{%- else -%}Quantity in bundle{%- endif -%}"
-                              hidden
-                            >0</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {%- assign products_shown = products_shown | plus: 1 -%}
-                    {%- endfor -%}
-
-                    {%- if products_shown == 0 -%}
-                      <p class="bb-empty-collection">{%- if locale_is_ar -%}لا توجد منتجات مطابقة لاختياراتك.{%- else -%}No products match your filters.{%- endif -%}</p>
-                    {%- endif -%}
-                  </div><!-- /.bb-product-grid -->
-                </div><!-- /.bb-panel -->
-              {%- endif -%}
-            {%- endfor -%}
-          </div><!-- /.bb-collections-wrapper -->
-        {%- endif -%}
-
-        {%- comment -%} ── Wizard navigation buttons ─────────────────────────── {%- endcomment -%}
-        {%- if is_wizard -%}
-        <div class="bb-wizard-controls" aria-label="{%- if locale_is_ar -%}التنقل بين الخطوات{%- else -%}Step navigation{%- endif -%}">
-          <button class="bb-wizard-btn bb-wizard-btn--prev" id="bb-prev-{{ section_id }}" type="button" hidden>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-            {%- if locale_is_ar -%}السابق{%- else -%}Previous{%- endif -%}
-          </button>
-          <button class="bb-wizard-btn bb-wizard-btn--next" id="bb-next-{{ section_id }}" type="button">
-            {%- if locale_is_ar -%}التالي{%- else -%}Next{%- endif -%}
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </div>
-        {%- endif -%}
-
-      </div><!-- /.bb-picker -->
-
-      {%- comment -%} ── Sidebar summary ───────────────────────────────────── {%- endcomment -%}
-      <aside class="bb-sidebar" aria-label="{%- if locale_is_ar -%}ملخص الطقم{%- else -%}Bundle summary{%- endif -%}">
-
-        {%- comment -%} ── Progress bar ─────────────────────────────────────── {%- endcomment -%}
-        {%- if bb.show_progress_bar -%}
-        <div class="bb-progress-wrap" aria-label="{%- if locale_is_ar -%}تقدّم الطقم{%- else -%}Bundle progress{%- endif -%}">
-          <div class="bb-progress-text" aria-live="polite">
-            <span class="bb-progress-current">0</span>
-            {%- if locale_is_ar -%}من{%- else -%}of{%- endif -%}
-            <span class="bb-progress-max">{{ max_qty }}</span>
-            {%- if locale_is_ar -%}منتجات مختارة{%- else -%}items selected{%- endif -%}
-          </div>
-          <div
-            class="bb-progress-bar"
-            role="progressbar"
-            aria-valuemin="0"
-            aria-valuemax="{{ max_qty }}"
-            aria-valuenow="0"
-            aria-label="{%- if locale_is_ar -%}تقدّم الطقم{%- else -%}Bundle progress{%- endif -%}"
-          >
-            <div class="bb-progress-fill" style="width:0%"></div>
-          </div>
-          <p class="bb-progress-hint" aria-live="polite">
-            {%- if locale_is_ar -%}أضف{%- else -%}Add{%- endif -%}
-            <strong class="bb-progress-remaining">{{ max_qty }}</strong>
-            {%- if locale_is_ar -%}منتجات إضافية لإكمال طقمك{%- else -%}more items to complete your bundle{%- endif -%}
-          </p>
-        </div>
-        {%- endif -%}
-
-        {%- comment -%} ── Active discount display ───────────────────────────── {%- endcomment -%}
-        {%- comment -%} ── Slot visualization (filled in by JS) ─────────────── {%- endcomment -%}
-        <div class="bb-slots-wrap" aria-hidden="true">
-          <div class="bb-slots" id="bb-slots-{{ section_id }}">
-            {%- for i in (1..max_qty) -%}
-            <div class="bb-slot" data-slot="{{ i }}">
-              <span class="bb-slot__empty" aria-hidden="true">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              </span>
-            </div>
-            {%- endfor -%}
-          </div>
-          <div class="bb-slots-label">
-            <span class="bb-slots-count">0</span>
-            {%- if locale_is_ar -%}من{%- else -%}of{%- endif -%}
-            <span class="bb-slots-max">{{ max_qty }}</span>
-            {%- if locale_is_ar -%}مختار{%- else -%}selected{%- endif -%}
-          </div>
-        </div>
-
-        <div class="bb-active-discount" aria-live="polite" hidden>
-          <span class="bb-active-discount__icon" aria-hidden="true">🏷</span>
-          <span class="bb-active-discount__text"></span>
-        </div>
-        <div class="bb-next-tier-hint" aria-live="polite" hidden>
-          <span class="bb-next-tier-hint__text"></span>
-        </div>
-
-        {%- comment -%} ── Tier unlock progress (shown when tiers configured) ── {%- endcomment -%}
-        {%- if bb.tier_1_qty > 0 -%}
-        <div class="bb-tier-progress" aria-label="{%- if locale_is_ar -%}تقدّم الخصم{%- else -%}Discount progress{%- endif -%}">
-          <div class="bb-tier-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-            <div class="bb-tier-progress-fill"></div>
-          </div>
-          <div class="bb-tier-progress-labels">
-            <span class="bb-tier-progress-label-start"></span>
-            <span class="bb-tier-progress-label-end"></span>
-          </div>
-        </div>
-        {%- endif -%}
-
-        {%- comment -%} ── Selected items list ───────────────────────────────── {%- endcomment -%}
-        <div class="bb-selection-summary">
-          <h3 class="bb-selection-summary__heading">
-            {%- if locale_is_ar -%}طقمك{%- else -%}Your Bundle{%- endif -%}
-          </h3>
-          <ul
-            class="bb-selection-list"
-            id="bb-selection-list-{{ section_id }}"
-            aria-label="{%- if locale_is_ar -%}المنتجات المختارة{%- else -%}Selected products{%- endif -%}"
-            aria-live="polite"
-          >
-            <li class="bb-selection-empty">
-              {%- if locale_is_ar -%}طقمك فارغ. ابدأ بإضافة المنتجات!{%- else -%}Your bundle is empty. Start adding products!{%- endif -%}
-            </li>
-          </ul>
-        </div>
-
-        {%- comment -%} ── Price summary ─────────────────────────────────────── {%- endcomment -%}
-        <div class="bb-price-summary">
-          {%- if bb.show_savings -%}
-          <div class="bb-price-row bb-price-row--original" hidden>
-            <span>{%- if locale_is_ar -%}السعر الأصلي{%- else -%}Original{%- endif -%}</span>
-            <span class="bb-original-total">{{ 0 | money }}</span>
-          </div>
-          <div class="bb-price-row bb-price-row--savings" hidden>
-            <span>{%- if locale_is_ar -%}وفّرت{%- else -%}You save{%- endif -%}</span>
-            <span class="bb-savings-amount"></span>
-          </div>
+                {%- if shown == 0 -%}
+                  <p class="byob-empty">{%- if locale_is_ar -%}لا توجد منتجات في هذا القسم بعد.{%- else -%}No products in this category yet.{%- endif -%}</p>
+                {%- endif -%}
+              </div>
+            </section>
           {%- endif -%}
-          <div class="bb-price-row bb-price-row--total">
-            <span>{%- if locale_is_ar -%}الإجمالي{%- else -%}Total{%- endif -%}</span>
-            <strong class="bb-bundle-total" aria-live="polite">{{ 0 | money }}</strong>
+        {%- endfor -%}
+
+        {%- if panel_index == 0 -%}
+          <div class="byob-setup-hint">
+            {%- if locale_is_ar -%}
+              أضف كتل «قسم» من محرّر القالب واختر مجموعة لكل قسم لعرض المنتجات هنا.
+            {%- else -%}
+              Add “Category” blocks in the theme editor and pick a collection for each to show products here.
+            {%- endif -%}
+          </div>
+        {%- endif -%}
+      </div>
+
+      {%- comment -%} ── Sticky vertical bundle rail (desktop) ── {%- endcomment -%}
+      <aside class="byob-rail" aria-label="{%- if locale_is_ar -%}طقمك{%- else -%}Your bundle{%- endif -%}">
+        <div class="byob-rail__inner">
+          <p class="byob-rail__heading">{%- if locale_is_ar -%}طقمك{%- else -%}Your Bundle{%- endif -%}</p>
+
+          <div class="byob-rail__track" id="byob-rail-{{ sid }}" aria-live="polite">
+            {%- for i in (1..max_qty) -%}
+              <div class="byob-slot" data-slot="{{ i }}">
+                <span class="byob-slot__ring">
+                  <span class="byob-slot__empty"></span>
+                </span>
+                {%- if forloop.last == false -%}<span class="byob-slot__link" aria-hidden="true"></span>{%- endif -%}
+              </div>
+            {%- endfor -%}
+          </div>
+
+          <div class="byob-rail__foot">
+            <div class="byob-reward-bar" aria-hidden="true">
+              <div class="byob-reward-bar__fill" data-reward-fill></div>
+            </div>
+            <p class="byob-rail__msg" data-rail-msg aria-live="polite"></p>
+
+            <div class="byob-totals">
+              <div class="byob-totals__row byob-totals__row--strike" data-orig-row hidden>
+                <span>{%- if locale_is_ar -%}الأصلي{%- else -%}Original{%- endif -%}</span>
+                <s data-orig></s>
+              </div>
+              <div class="byob-totals__row byob-totals__row--save" data-save-row hidden>
+                <span>{%- if locale_is_ar -%}وفّرت{%- else -%}You save{%- endif -%}</span>
+                <span data-save></span>
+              </div>
+              <div class="byob-totals__row byob-totals__row--total">
+                <span>{%- if locale_is_ar -%}الإجمالي{%- else -%}Total{%- endif -%}</span>
+                <strong data-total>{{ 0 | money }}</strong>
+              </div>
+            </div>
+
+            <button class="byob-cta" type="button" data-action="checkout" disabled aria-disabled="true">
+              <span class="byob-cta__label">{%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add Bundle to Cart{%- endif -%}</span>
+              <span class="byob-cta__spin" hidden aria-hidden="true"></span>
+            </button>
+            <p class="byob-cta__hint" data-hint aria-live="assertive"></p>
           </div>
         </div>
-
-        {%- comment -%} ── CTA button ────────────────────────────────────────── {%- endcomment -%}
-        <button
-          class="bb-cta-btn"
-          id="bb-cta-{{ section_id }}"
-          type="button"
-          disabled
-          aria-disabled="true"
-          aria-label="{%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add bundle to cart{%- endif -%}"
-        >
-          <span class="bb-cta-btn__icon" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
-          </span>
-          <span class="bb-cta-btn__label">{%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add Bundle to Cart{%- endif -%}</span>
-          <span class="bb-cta-btn__spinner" aria-hidden="true" hidden></span>
-        </button>
-
-        <p class="bb-cta-hint" aria-live="assertive"></p>
-
-        {%- if bb.show_savings -%}
-        <p class="bb-guarantee-text">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          {%- if locale_is_ar -%}دفع آمن · إرجاع مجاني{%- else -%}Secure checkout · Free returns{%- endif -%}
-        </p>
-        {%- endif -%}
-
-      </aside><!-- /.bb-sidebar -->
-    </div><!-- /.bb-layout -->
-
-    {%- comment -%} ── Mobile drawer ─────────────────────────────────────────── {%- endcomment -%}
-    <div class="bb-mobile-drawer" id="bb-drawer-{{ section_id }}" aria-hidden="true">
-      <div class="bb-mobile-drawer__handle" aria-label="{%- if locale_is_ar -%}فتح ملخص الطقم{%- else -%}Open bundle summary{%- endif -%}" tabindex="0" role="button">
-        <span class="bb-mobile-drawer__pill"></span>
-        <span class="bb-mobile-drawer__preview">
-          <span class="bb-drawer-qty">0</span> {%- if locale_is_ar -%}منتجات{%- else -%}items{%- endif -%} ·
-          <strong class="bb-drawer-total">{{ 0 | money }}</strong>
-        </span>
-        <span class="bb-mobile-drawer__arrow" aria-hidden="true">▲</span>
-      </div>
-      <div class="bb-mobile-drawer__body">
-        <div class="bb-mobile-drawer__inner">
-          <!-- cloned at runtime -->
-        </div>
-        <button class="bb-cta-btn bb-cta-btn--drawer" type="button" disabled aria-disabled="true">
-          {%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add Bundle to Cart{%- endif -%}
-        </button>
-      </div>
+      </aside>
     </div>
 
-    {%- comment -%} ── Quick view dialog ─────────────────────────────────────── {%- endcomment -%}
-    <dialog
-      class="bb-quick-view-dialog"
-      id="bb-quick-view-{{ section_id }}"
-      aria-label="{%- if locale_is_ar -%}عرض سريع للمنتج{%- else -%}Product quick view{%- endif -%}"
-      aria-modal="true"
-    >
-      <button class="bb-quick-view-close" type="button" aria-label="{%- if locale_is_ar -%}إغلاق{%- else -%}Close{%- endif -%}">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      <div class="bb-quick-view-content" aria-live="polite">
-        <div class="bb-quick-view-loading">
-          <div class="bb-spinner" aria-label="{%- if locale_is_ar -%}جارٍ التحميل…{%- else -%}Loading…{%- endif -%}"></div>
-        </div>
+    {%- comment -%} ── Mobile bottom bar ── {%- endcomment -%}
+    <div class="byob-mobilebar" id="byob-mobilebar-{{ sid }}">
+      <div class="byob-mobilebar__top">
+        <div class="byob-mobilebar__slots" data-mobile-slots aria-hidden="true"></div>
+        <strong class="byob-mobilebar__total" data-total>{{ 0 | money }}</strong>
       </div>
-    </dialog>
+      <p class="byob-mobilebar__msg" data-rail-msg></p>
+      <button class="byob-cta byob-cta--mobile" type="button" data-action="checkout" disabled aria-disabled="true">
+        <span class="byob-cta__label">{%- if locale_is_ar -%}أضف الطقم إلى السلة{%- else -%}Add Bundle to Cart{%- endif -%}</span>
+        <span class="byob-cta__spin" hidden aria-hidden="true"></span>
+      </button>
+    </div>
 
-    {%- comment -%} ── Screen-reader status ──────────────────────────────────── {%- endcomment -%}
-    <div class="visually-hidden" aria-live="assertive" id="bb-sr-status-{{ section_id }}"></div>
+    {%- comment -%} ── Free-mini reward toast (optional) ── {%- endcomment -%}
+    {%- if free_gift_json != 'null' -%}
+    <div class="byob-gift" data-gift hidden role="status">
+      <span class="byob-gift__icon" aria-hidden="true">🎁</span>
+      <span class="byob-gift__text">
+        {%- if locale_is_ar -%}فتحت هديتك المجانية!{%- else -%}You unlocked your free mini!{%- endif -%}
+      </span>
+    </div>
+    {%- endif -%}
 
+    <span class="byob-sr" data-sr aria-live="polite"></span>
   </bundle-builder>
 </section>
 
 <style>
 /* ═══════════════════════════════════════════════════════════════════════════
-   BUNDLE BUILDER — Al Moallem Mill
-   All measurements use CSS logical properties for RTL/LTR parity.
+   BYOB — OUAI-inspired bundle builder. CSS logical properties throughout for
+   automatic LTR/RTL parity.
    ═══════════════════════════════════════════════════════════════════════════ */
+.byob {
+  --byob-bg:        {{ section.settings.color_bg        | default: '#f1f0ec' }};
+  --byob-ink:       {{ section.settings.color_text      | default: '#141414' }};
+  --byob-muted:     {{ section.settings.color_muted     | default: '#6f6c66' }};
+  --byob-card:      {{ section.settings.color_card_bg   | default: '#ffffff' }};
+  --byob-media-bg:  #eceae4;
+  --byob-rail-bg:   {{ section.settings.color_rail_bg   | default: '#e7dbd1' }};
+  --byob-accent:    {{ section.settings.color_accent    | default: '#141414' }};
+  --byob-success:   #2f8f5b;
+  --byob-line:      #d9d4cc;
+  --byob-radius:    {{ section.settings.card_radius     | default: 14 }}px;
 
-/* ── CSS custom properties ─────────────────────────────────────────────── */
-bundle-builder {
-  --bb-color-primary:       {{ section.settings.color_primary       | default: '#1a1a2e' }};
-  --bb-color-accent:        {{ section.settings.color_accent        | default: '#c8a96e' }};
-  --bb-color-bg:            {{ section.settings.color_bg            | default: '#f9f7f4' }};
-  --bb-color-card-bg:       {{ section.settings.color_card_bg       | default: '#ffffff' }};
-  --bb-color-card-border:   {{ section.settings.color_card_border   | default: '#e8e3dc' }};
-  --bb-color-card-hover:    {{ section.settings.color_card_hover_border | default: '#c8a96e' }};
-  --bb-color-text:          {{ section.settings.color_text          | default: '#1a1a2e' }};
-  --bb-color-text-muted:    {{ section.settings.color_text_muted    | default: '#6b6b7b' }};
-  --bb-color-progress-bg:   {{ section.settings.color_progress_bg   | default: '#e8e3dc' }};
-  --bb-color-progress-fill: {{ section.settings.color_accent        | default: '#c8a96e' }};
-  --bb-color-tier-1:        {{ section.settings.color_tier_1        | default: '#2ecc71' }};
-  --bb-color-tier-2:        {{ section.settings.color_tier_2        | default: '#3498db' }};
-  --bb-color-free-gift:     {{ section.settings.color_free_gift     | default: '#e74c3c' }};
-  --bb-color-required:      #e74c3c;
-  --bb-color-success:       #27ae60;
-  --bb-color-disabled:      #b0b0b0;
-  --bb-radius-card:         {{ section.settings.card_border_radius  | default: 12 }}px;
-  --bb-radius-btn:          {{ section.settings.button_border_radius| default: 8 }}px;
-  --bb-font-size-base:      1rem;
-  --bb-font-size-sm:        0.875rem;
-  --bb-font-size-xs:        0.75rem;
-  --bb-transition:          0.25s ease;
-  --bb-shadow-card:         0 2px 12px rgba(0,0,0,.07);
-  --bb-shadow-card-hover:   0 6px 24px rgba(0,0,0,.12);
-  --bb-sidebar-width:       320px;
-  --bb-cols-desktop:        3;
-  --bb-cols-mobile:         2;
-}
-
-/* ── Utility ───────────────────────────────────────────────────────────── */
-.visually-hidden {
-  position: absolute;
-  width: 1px; height: 1px;
-  padding: 0; margin: -1px;
-  overflow: hidden;
-  clip: rect(0,0,0,0);
-  white-space: nowrap;
-  border: 0;
-}
-
-/* ── Section wrapper ───────────────────────────────────────────────────── */
-.bundle-builder-section {
-  background: var(--bb-color-bg);
-  color: var(--bb-color-text);
-  font-size: var(--bb-font-size-base);
-  padding-block: 3rem;
+  background: var(--byob-bg);
+  color: var(--byob-ink);
+  padding-block: var(--byob-pt) var(--byob-pb);
   container-type: inline-size;
+  font-synthesis: none;
 }
 
-bundle-builder {
-  display: block;
-  max-width: 1400px;
+.byob *,
+.byob *::before,
+.byob *::after { box-sizing: border-box; }
+
+.byob-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+}
+
+/* ── Marquee ───────────────────────────────────────────────────────────── */
+.byob-marquee {
+  overflow: hidden;
+  border-block: 1px solid var(--byob-line);
+  background: color-mix(in srgb, var(--byob-rail-bg) 35%, var(--byob-bg));
+  margin-block-end: clamp(1.5rem, 5cqi, 3rem);
+}
+.byob-marquee__track {
+  display: flex; gap: 3rem; width: max-content;
+  padding-block: 0.6rem;
+  animation: byob-marquee 28s linear infinite;
+}
+.byob-marquee__item {
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.14em;
+  text-transform: uppercase; white-space: nowrap; color: var(--byob-ink);
+}
+@keyframes byob-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+[dir="rtl"] .byob-marquee__track { animation-direction: reverse; }
+@media (prefers-reduced-motion: reduce) { .byob-marquee__track { animation: none; } }
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+.byob-hero {
+  max-width: 880px;
   margin-inline: auto;
   padding-inline: 1.25rem;
-}
-
-/* ── Timer bar ─────────────────────────────────────────────────────────── */
-.bb-timer-bar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  background: var(--bb-color-primary);
-  color: #fff;
-  padding-block: 0.6rem;
-  padding-inline: 1rem;
-  border-radius: var(--bb-radius-btn);
-  margin-block-end: 1.5rem;
-  font-size: var(--bb-font-size-sm);
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.bb-timer-display {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.bb-timer-unit {
-  display: inline-block;
-  min-width: 2ch;
   text-align: center;
-  font-variant-numeric: tabular-nums;
-  font-size: 1.1em;
+  margin-block-end: clamp(2rem, 6cqi, 4rem);
 }
-
-.bb-timer-sep {
-  opacity: 0.7;
-  font-size: 0.85em;
-  padding-inline-end: 0.2rem;
-}
-
-/* ── Header ────────────────────────────────────────────────────────────── */
-.bb-header { margin-block-end: 1.5rem; }
-.bb-header__inner { text-align: center; }
-
-.bb-type-badge {
-  display: inline-block;
-  padding: 0.2rem 0.75rem;
-  border-radius: 100px;
-  font-size: var(--bb-font-size-xs);
-  font-weight: 700;
+.byob-hero__title {
+  font-size: clamp(2.4rem, 9cqi, 5.5rem);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  background: var(--bb-color-accent);
-  color: #fff;
-  margin-block-end: 0.5rem;
+  margin: 0 0 1rem;
+  color: var(--byob-ink);
 }
-
-.bb-type-badge--tiered  { background: var(--bb-color-tier-1); }
-.bb-type-badge--bogo    { background: #9b59b6; }
-.bb-type-badge--gift_set { background: var(--bb-color-free-gift); }
-.bb-type-badge--wizard  { background: #2c3e50; }
-
-.bb-heading {
-  font-size: clamp(1.5rem, 3cqi, 2.5rem);
-  font-weight: 800;
-  margin: 0 0 0.5rem;
-  color: var(--bb-color-primary);
+.byob-hero__sub {
+  font-size: clamp(1.05rem, 2.4cqi, 1.5rem);
+  line-height: 1.4;
+  margin: 0 auto;
+  max-width: 46ch;
+  color: var(--byob-ink);
 }
-
-.bb-subheading {
-  font-size: var(--bb-font-size-base);
-  color: var(--bb-color-text-muted);
-  margin: 0;
-}
-
-/* ── Tier bar ──────────────────────────────────────────────────────────── */
-.bb-tier-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-  margin-block-end: 1.5rem;
-}
-
-.bb-tier-badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.1rem;
-  border: 2px solid var(--tier-color, var(--bb-color-accent));
-  border-radius: var(--bb-radius-card);
-  padding: 0.5rem 1rem;
-  min-width: 70px;
-  background: color-mix(in srgb, var(--tier-color, var(--bb-color-accent)) 10%, transparent);
-  transition: background var(--bb-transition), transform var(--bb-transition), box-shadow var(--bb-transition);
-  cursor: default;
-}
-
-.bb-tier-badge.is-active {
-  background: var(--tier-color, var(--bb-color-accent));
-  color: #fff;
-  transform: scale(1.05);
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--tier-color, var(--bb-color-accent)) 40%, transparent);
-}
-
-.bb-tier-badge.is-next {
-  border-style: dashed;
-  animation: tierPulse 1.5s ease-in-out infinite;
-}
-
-.bb-tier-badge__qty  { font-size: 1.1rem; font-weight: 800; line-height: 1; }
-.bb-tier-badge__pct  { font-size: 1.4rem; font-weight: 900; line-height: 1; color: var(--tier-color, var(--bb-color-accent)); }
-.bb-tier-badge.is-active .bb-tier-badge__pct { color: #fff; }
-.bb-tier-badge__label { font-size: var(--bb-font-size-xs); text-transform: uppercase; letter-spacing: 0.05em; }
-
-@keyframes tierPulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.6; }
-}
-
-/* ── Free gift banner ──────────────────────────────────────────────────── */
-.bb-free-gift-banner {
-  display: flex;
-  background: color-mix(in srgb, var(--bb-color-free-gift) 12%, white);
-  border: 2px solid var(--bb-color-free-gift);
-  border-radius: var(--bb-radius-card);
-  padding: 0.75rem 1rem;
-  margin-block-end: 1rem;
-  animation: slideDown 0.35s ease;
-}
-
-.bb-free-gift-banner__inner {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.bb-free-gift-banner__icon { font-size: 1.5rem; }
-.bb-free-gift-banner__text { font-weight: 700; color: var(--bb-color-free-gift); }
-
-.bb-free-gift-product {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: #fff;
-  border-radius: calc(var(--bb-radius-card) - 4px);
-  padding: 0.25rem 0.5rem;
-}
-
-.bb-free-gift-product img {
-  border-radius: 4px;
-  object-fit: cover;
-}
-
-/* ── Wizard nav ────────────────────────────────────────────────────────── */
-.bb-wizard-nav {
-  margin-block-end: 1.5rem;
-}
-
-.bb-wizard-steps {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  counter-reset: wizard-step;
-}
-
-.bb-wizard-step-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  border: 2px solid var(--bb-color-card-border);
-  border-radius: var(--bb-radius-btn);
-  background: var(--bb-color-card-bg);
-  font-size: var(--bb-font-size-sm);
+.byob-hero__reward {
+  margin: 1rem 0 0;
+  font-size: 0.95rem;
   font-weight: 600;
-  cursor: pointer;
-  transition: border-color var(--bb-transition), background var(--bb-transition), color var(--bb-transition);
-  position: relative;
+  color: var(--byob-muted);
 }
 
-.bb-wizard-step-btn.is-active {
-  border-color: var(--bb-color-accent);
-  background: var(--bb-color-accent);
-  color: #fff;
-}
-
-.bb-wizard-step-btn.is-complete {
-  border-color: var(--bb-color-success);
-  background: color-mix(in srgb, var(--bb-color-success) 10%, white);
-}
-
-.bb-wizard-step-btn__number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  font-size: var(--bb-font-size-xs);
-  font-weight: 800;
-}
-
-.bb-wizard-step-btn__check { display: none; }
-.bb-wizard-step-btn.is-complete .bb-wizard-step-btn__check { display: inline; }
-.bb-wizard-step-btn.is-complete .bb-wizard-step-btn__number { display: none; }
-
-.bb-wizard-progress-text {
-  font-size: var(--bb-font-size-sm);
-  color: var(--bb-color-text-muted);
-  margin-block-start: 0.5rem;
-}
-
-/* ── Main layout ───────────────────────────────────────────────────────── */
-.bb-layout {
+/* ── Layout: main + rail ───────────────────────────────────────────────── */
+.byob-grid-wrap {
   display: grid;
-  grid-template-columns: 1fr var(--bb-sidebar-width);
-  gap: 1.5rem;
+  grid-template-columns: 1fr 300px;
+  gap: clamp(1.5rem, 4cqi, 3.5rem);
   align-items: start;
+  max-width: 1320px;
+  margin-inline: auto;
+  padding-inline: clamp(1rem, 3cqi, 2.5rem);
 }
-
 @container (max-width: 900px) {
-  .bb-layout {
-    grid-template-columns: 1fr;
-  }
-  .bb-sidebar {
-    display: none;
-  }
+  .byob-grid-wrap { grid-template-columns: 1fr; }
+  .byob-rail { display: none; }
 }
 
-/* ── Search bar ────────────────────────────────────────────────────────── */
-.bb-search-bar {
-  position: relative;
-  margin-block-end: 1rem;
+/* ── Category section ──────────────────────────────────────────────────── */
+.byob-cat { margin-block-end: clamp(3rem, 8cqi, 6rem); }
+.byob-cat__title {
+  font-size: clamp(1.8rem, 6cqi, 3.6rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  margin: 0 0 0.5rem;
 }
-
-.bb-search-input {
-  width: 100%;
-  padding-block: 0.6rem;
-  padding-inline: 2.5rem 0.75rem;
-  border: 1.5px solid var(--bb-color-card-border);
-  border-radius: var(--bb-radius-btn);
-  font-size: var(--bb-font-size-base);
-  background: var(--bb-color-card-bg);
-  color: var(--bb-color-text);
-  outline-offset: 2px;
-  transition: border-color var(--bb-transition);
+.byob-cat__desc {
+  text-align: center;
+  color: var(--byob-muted);
+  font-size: 1rem;
+  margin: 0 auto clamp(1.5rem, 4cqi, 2.5rem);
+  max-width: 52ch;
 }
+.byob-cat__title + .byob-cards { margin-block-start: clamp(1.5rem, 4cqi, 2.5rem); }
 
-.bb-search-input:focus { border-color: var(--bb-color-accent); }
-
-.bb-search-icon {
-  position: absolute;
-  inset-block-start: 50%;
-  inset-inline-start: 0.65rem;
-  transform: translateY(-50%);
-  color: var(--bb-color-text-muted);
-  pointer-events: none;
-  display: flex;
-}
-
-/* ── Collection tabs ───────────────────────────────────────────────────── */
-.bb-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.375rem;
-  margin-block-end: 1rem;
-  border-block-end: 2px solid var(--bb-color-card-border);
-  padding-block-end: 0.75rem;
-}
-
-.bb-tab {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.45rem 1rem;
-  border: 1.5px solid var(--bb-color-card-border);
-  border-radius: var(--bb-radius-btn);
-  background: transparent;
-  font-size: var(--bb-font-size-sm);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all var(--bb-transition);
-  color: var(--bb-color-text-muted);
-}
-
-.bb-tab:hover,
-.bb-tab:focus-visible {
-  border-color: var(--bb-color-accent);
-  color: var(--bb-color-primary);
-}
-
-.bb-tab.is-active {
-  background: var(--bb-color-primary);
-  border-color: var(--bb-color-primary);
-  color: #fff;
-}
-
-.bb-tab__icon { font-size: 1.1em; }
-
-/* ── Collections wrapper ───────────────────────────────────────────────── */
-.bb-collections-wrapper { position: relative; }
-
-/* ── Panel / step panel ────────────────────────────────────────────────── */
-.bb-panel { display: none; }
-.bb-panel.is-active { display: block; }
-
-/* ── Wizard step panels ────────────────────────────────────────────────── */
-.bundle-builder--wizard .bb-collections-wrapper { overflow: hidden; }
-
-.bb-step-panel {
-  display: none;
-}
-
-.bb-step-panel.is-active {
-  display: block;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  /* Forward (LTR) — new panel enters from the right */
-  .bb-step-panel.is-active[data-animation="slide"] {
-    animation: slideInStep 0.3s ease;
-  }
-  /* Back (LTR) — new panel enters from the left */
-  .bb-step-panel.is-active[data-animation="slide-back"] {
-    animation: slideInStepRtl 0.3s ease;
-  }
-  /* Forward (RTL) — mirror of forward LTR (enters from the left) */
-  .bb-step-panel.is-active[data-animation="slide-rtl"] {
-    animation: slideInStepRtl 0.3s ease;
-  }
-  .bb-step-panel.is-active[data-animation="fade"] {
-    animation: fadeInStep 0.35s ease;
-  }
-  .bb-step-panel.is-active[data-animation="scale"] {
-    animation: scaleInStep 0.3s ease;
-  }
-}
-
-@keyframes slideInStep {
-  from { transform: translateX(2rem); opacity: 0; }
-  to   { transform: translateX(0);   opacity: 1; }
-}
-
-@keyframes slideInStepRtl {
-  from { transform: translateX(-2rem); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
-}
-
-@keyframes fadeInStep {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-@keyframes scaleInStep {
-  from { transform: scale(0.96); opacity: 0; }
-  to   { transform: scale(1);    opacity: 1; }
-}
-
-@keyframes slideDown {
-  from { transform: translateY(-0.5rem); opacity: 0; }
-  to   { transform: translateY(0);       opacity: 1; }
-}
-
-/* ── Step header ───────────────────────────────────────────────────────── */
-.bb-step-header { margin-block-end: 1rem; }
-.bb-step-title { font-size: 1.2rem; font-weight: 700; margin: 0 0 0.25rem; }
-.bb-step-description { font-size: var(--bb-font-size-sm); color: var(--bb-color-text-muted); margin: 0; }
-
-/* ── Collection hero ───────────────────────────────────────────────────── */
-.bb-collection-hero { margin-block-end: 1rem; border-radius: var(--bb-radius-card); overflow: hidden; }
-.bb-collection-hero__img { width: 100%; height: 180px; object-fit: cover; display: block; }
-
-/* ── Product grid ──────────────────────────────────────────────────────── */
-.bb-product-grid {
+/* ── Cards grid ────────────────────────────────────────────────────────── */
+.byob-cards {
   display: grid;
-  grid-template-columns: repeat(var(--bb-cols-desktop, 3), 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: clamp(1rem, 3cqi, 2.5rem);
 }
+@container (max-width: 760px) { .byob-cards { grid-template-columns: repeat(2, 1fr); } }
+@container (max-width: 420px) { .byob-cards { grid-template-columns: 1fr; } }
 
-@container (max-width: 700px) {
-  .bb-product-grid {
-    grid-template-columns: repeat(var(--bb-cols-mobile, 2), 1fr);
-  }
-}
-
-@container (max-width: 380px) {
-  .bb-product-grid { grid-template-columns: 1fr; }
-}
-
-.bb-empty-collection {
+.byob-empty,
+.byob-setup-hint {
   grid-column: 1 / -1;
   text-align: center;
-  color: var(--bb-color-text-muted);
+  color: var(--byob-muted);
   padding: 2rem;
+  border: 1px dashed var(--byob-line);
+  border-radius: var(--byob-radius);
 }
+.byob-setup-hint { max-width: 640px; margin-inline: auto; }
 
 /* ── Product card ──────────────────────────────────────────────────────── */
-.bb-product-card {
-  background: var(--bb-color-card-bg);
-  border: 2px solid var(--bb-color-card-border);
-  border-radius: var(--bb-radius-card);
-  overflow: hidden;
-  transition: border-color var(--bb-transition), box-shadow var(--bb-transition), transform var(--bb-transition);
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-  position: relative;
-}
+.byob-card { display: flex; flex-direction: column; }
 
-.bb-product-card:hover,
-.bb-product-card:focus-visible {
-  border-color: var(--bb-color-card-hover);
-  box-shadow: var(--bb-shadow-card-hover);
-  outline: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .bb-product-card:hover { transform: translateY(-2px); }
-}
-
-.bb-product-card.is-selected {
-  border-color: var(--bb-color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bb-color-accent) 25%, transparent);
-}
-
-.bb-product-card.is-required {
-  border-color: var(--bb-color-required);
-}
-
-.bb-product-card.is-sold-out {
-  opacity: 0.65;
-  pointer-events: none;
-}
-
-/* card image */
-.bb-product-card__image-wrap {
+.byob-card__media {
   position: relative;
   aspect-ratio: 1;
-  background: #f3f3f3;
+  background: var(--byob-media-bg);
+  border-radius: var(--byob-radius);
   overflow: hidden;
 }
-
-.bb-product-card__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: transform 0.4s ease;
-}
-
-.bb-product-card:hover .bb-product-card__img { transform: scale(1.04); }
-
-.bb-product-card__no-image {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.byob-card__img {
   width: 100%; height: 100%;
-  color: var(--bb-color-text-muted);
+  object-fit: cover; display: block;
+  transition: transform .5s ease;
 }
-.bb-product-card__no-image svg { width: 3rem; height: 3rem; }
-
-.bb-product-card__sold-out {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,.45);
-  color: #fff;
-  font-weight: 700;
-  font-size: var(--bb-font-size-sm);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+.byob-card:hover .byob-card__img { transform: scale(1.03); }
+.byob-card__noimg {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 2rem; color: var(--byob-muted);
+}
+.byob-card__soldout {
+  position: absolute; inset-block-start: 0.75rem; inset-inline-start: 0.75rem;
+  background: var(--byob-ink); color: #fff;
+  font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 0.2rem 0.6rem; border-radius: 100px;
 }
 
-.bb-product-card__required-badge {
+/* black circular add button overlapping the image */
+.byob-card__add {
   position: absolute;
-  inset-block-start: 0.5rem;
-  inset-inline-start: 0.5rem;
-  background: var(--bb-color-required);
-  color: #fff;
-  font-size: var(--bb-font-size-xs);
-  font-weight: 700;
-  padding: 0.15rem 0.5rem;
-  border-radius: 100px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.bb-product-card__quick-view {
-  position: absolute;
-  inset-block-end: 0.5rem;
-  inset-inline-end: 0.5rem;
-  width: 2rem;
-  height: 2rem;
+  inset-block-end: 0.9rem; inset-inline-end: 0.9rem;
+  width: 3rem; height: 3rem;
   border-radius: 50%;
-  background: rgba(255,255,255,.9);
   border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: scale(0.8);
-  transition: opacity var(--bb-transition), transform var(--bb-transition);
-}
-
-.bb-product-card:hover .bb-product-card__quick-view,
-.bb-product-card:focus-within .bb-product-card__quick-view {
-  opacity: 1;
-  transform: scale(1);
-}
-
-/* card info */
-.bb-product-card__info {
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  flex: 1;
-}
-
-.bb-product-card__vendor {
-  font-size: var(--bb-font-size-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--bb-color-text-muted);
-  margin: 0;
-}
-
-.bb-product-card__title {
-  font-size: var(--bb-font-size-sm);
-  font-weight: 700;
-  margin: 0;
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.bb-product-card__price-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.bb-product-card__price {
-  font-weight: 700;
-  color: var(--bb-color-primary);
-}
-
-.bb-product-card__compare-price {
-  font-size: var(--bb-font-size-xs);
-  color: var(--bb-color-text-muted);
-}
-
-.bb-product-card__variant-select-wrap { margin-block-start: 0.25rem; }
-
-.bb-product-card__variant-select {
-  width: 100%;
-  padding: 0.3rem 0.5rem;
-  border: 1.5px solid var(--bb-color-card-border);
-  border-radius: 6px;
-  font-size: var(--bb-font-size-xs);
-  background: var(--bb-color-bg);
-  color: var(--bb-color-text);
-  cursor: pointer;
-}
-
-/* card actions */
-.bb-product-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-block-start: auto;
-  padding-block-start: 0.4rem;
-}
-
-.bb-product-card__add-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
-  padding-block: 0.45rem;
-  border: 2px solid var(--bb-color-accent);
-  border-radius: var(--bb-radius-btn);
-  background: transparent;
-  color: var(--bb-color-accent);
-  font-size: var(--bb-font-size-sm);
-  font-weight: 700;
-  cursor: pointer;
-  transition: background var(--bb-transition), color var(--bb-transition);
-}
-
-.bb-product-card__add-btn:hover:not(:disabled) {
-  background: var(--bb-color-accent);
+  background: var(--byob-accent);
   color: #fff;
-}
-
-.bb-product-card__add-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-  border-color: var(--bb-color-disabled);
-  color: var(--bb-color-disabled);
-}
-
-.bb-product-card__qty-btn {
-  width: 2rem; height: 2rem;
-  border-radius: 50%;
-  border: 2px solid var(--bb-color-accent);
-  background: transparent;
-  color: var(--bb-color-accent);
-  font-size: 1.2rem;
-  line-height: 1;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background var(--bb-transition), color var(--bb-transition);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(0,0,0,.2);
+  transition: transform .18s ease, background .18s ease;
 }
-
-.bb-product-card__qty-btn:hover { background: var(--bb-color-accent); color: #fff; }
-
-.bb-product-card__qty-display {
-  min-width: 1.5rem;
-  text-align: center;
-  font-weight: 700;
+.byob-card__add:hover:not(:disabled) { transform: scale(1.08); }
+.byob-card__add:active:not(:disabled) { transform: scale(0.94); }
+.byob-card__add:disabled { opacity: 0.35; cursor: not-allowed; }
+.byob-card.is-selected .byob-card__add { background: var(--byob-success); }
+.byob-card__add-count {
+  position: absolute;
+  inset-block-start: -0.35rem; inset-inline-end: -0.35rem;
+  min-width: 1.35rem; height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 100px;
+  background: #fff; color: var(--byob-ink);
+  border: 2px solid var(--byob-accent);
+  font-size: 0.75rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Wizard controls ───────────────────────────────────────────────────── */
-.bb-wizard-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-block-start: 1.5rem;
-  gap: 1rem;
-}
-
-.bb-wizard-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.5rem;
-  border-radius: var(--bb-radius-btn);
-  border: 2px solid var(--bb-color-primary);
-  background: transparent;
-  font-size: var(--bb-font-size-base);
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--bb-transition);
-  color: var(--bb-color-primary);
-}
-
-.bb-wizard-btn:hover:not(:disabled) {
-  background: var(--bb-color-primary);
-  color: #fff;
-}
-
-.bb-wizard-btn--next {
-  margin-inline-start: auto;
-  background: var(--bb-color-primary);
-  color: #fff;
-}
-
-.bb-wizard-btn--next:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--bb-color-primary) 80%, white);
-}
-
-.bb-wizard-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-/* ── Sidebar ───────────────────────────────────────────────────────────── */
-.bb-sidebar {
-  position: sticky;
-  top: 1.5rem;
-  background: var(--bb-color-card-bg);
-  border: 1.5px solid var(--bb-color-card-border);
-  border-radius: var(--bb-radius-card);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  box-shadow: var(--bb-shadow-card);
-}
-
-/* progress */
-.bb-progress-wrap { display: flex; flex-direction: column; gap: 0.35rem; }
-
-.bb-progress-text {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--bb-font-size-sm);
-  font-weight: 600;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.bb-progress-bar {
-  height: 8px;
-  background: var(--bb-color-progress-bg);
-  border-radius: 100px;
-  overflow: hidden;
-}
-
-.bb-progress-fill {
-  height: 100%;
-  background: var(--bb-color-progress-fill);
-  border-radius: 100px;
-  transition: width 0.4s ease;
-}
-
-.bb-progress-hint {
-  font-size: var(--bb-font-size-xs);
-  color: var(--bb-color-text-muted);
-  margin: 0;
-}
-
-/* active discount */
-.bb-active-discount {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 0.75rem;
-  background: color-mix(in srgb, var(--bb-color-tier-1) 12%, white);
-  border: 1.5px solid var(--bb-color-tier-1);
-  border-radius: var(--bb-radius-btn);
-  font-weight: 700;
-  font-size: var(--bb-font-size-sm);
-  color: color-mix(in srgb, var(--bb-color-tier-1) 80%, black);
-}
-
-.bb-next-tier-hint {
-  font-size: var(--bb-font-size-xs);
-  color: var(--bb-color-text-muted);
-  text-align: center;
-  padding: 0.25rem 0;
-}
-
-/* selection list */
-.bb-selection-summary__heading {
-  font-size: 1rem;
-  font-weight: 700;
-  margin: 0;
-  padding-block-end: 0.5rem;
-  border-block-end: 1.5px solid var(--bb-color-card-border);
-}
-
-.bb-selection-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-height: 260px;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-
-.bb-selection-empty {
-  font-size: var(--bb-font-size-sm);
-  color: var(--bb-color-text-muted);
-  text-align: center;
-  padding-block: 1rem;
-}
-
-.bb-selection-item {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: var(--bb-font-size-sm);
-  animation: slideDown 0.2s ease;
-}
-
-.bb-selection-item__img {
-  width: 40px; height: 40px;
-  object-fit: cover;
-  border-radius: 6px;
-  flex-shrink: 0;
-  background: #f3f3f3;
-}
-
-.bb-selection-item__info { flex: 1; min-width: 0; }
-.bb-selection-item__title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bb-selection-item__price { font-size: var(--bb-font-size-xs); color: var(--bb-color-text-muted); }
-
-.bb-selection-item__qty-controls {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-.bb-selection-item__qty-btn {
-  width: 1.5rem; height: 1.5rem;
-  border-radius: 50%;
-  border: 1.5px solid var(--bb-color-card-border);
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1rem;
-  transition: all var(--bb-transition);
-}
-
-.bb-selection-item__qty-btn:hover { border-color: var(--bb-color-accent); color: var(--bb-color-accent); }
-.bb-selection-item__qty { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 1.5ch; text-align: center; }
-
-/* price summary */
-.bb-price-summary { border-block-start: 1.5px solid var(--bb-color-card-border); padding-block-start: 0.75rem; }
-.bb-price-row { display: flex; justify-content: space-between; align-items: center; font-size: var(--bb-font-size-sm); padding-block: 0.2rem; }
-.bb-price-row--total { font-size: 1.1rem; font-weight: 700; margin-block-start: 0.25rem; }
-.bb-price-row--savings { color: var(--bb-color-success); }
-.bb-savings-amount { font-weight: 700; }
-
-/* CTA */
-.bb-cta-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding: 0.85rem 1.5rem;
-  background: var(--bb-color-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--bb-radius-btn);
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-  letter-spacing: 0.02em;
-  transition: background var(--bb-transition), transform var(--bb-transition), opacity var(--bb-transition);
-  position: relative;
-  overflow: hidden;
-}
-
-.bb-cta-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(255,255,255,.08), transparent);
-  pointer-events: none;
-}
-
-.bb-cta-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--bb-color-primary) 80%, white);
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  .bb-cta-btn:hover:not(:disabled) { transform: translateY(-1px); }
+  .byob-card.just-added .byob-card__media { animation: byob-pop .4s cubic-bezier(.175,.885,.32,1.4); }
+}
+@keyframes byob-pop { 0%{transform:scale(1);} 40%{transform:scale(1.03);} 100%{transform:scale(1);} }
+
+/* card body */
+.byob-card__body { padding-block-start: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.byob-card__title {
+  font-size: 0.95rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+  margin: 0; line-height: 1.25; color: var(--byob-ink);
+}
+.byob-card__price { font-size: 1rem; font-weight: 800; margin: 0; }
+.byob-card__desc { font-size: 0.9rem; line-height: 1.5; color: var(--byob-ink); margin: 0; }
+.byob-card__variant {
+  width: 100%; padding: 0.45rem 0.6rem;
+  border: 1.5px solid var(--byob-line); border-radius: 8px;
+  background: var(--byob-bg); color: var(--byob-ink); font-size: 0.85rem; cursor: pointer;
 }
 
-.bb-cta-btn:disabled,
-.bb-cta-btn[aria-disabled="true"] {
-  background: var(--bb-color-disabled);
-  cursor: not-allowed;
-  transform: none;
+/* ── Vertical rail ─────────────────────────────────────────────────────── */
+.byob-rail { position: sticky; inset-block-start: 1.5rem; }
+.byob-rail__inner {
+  background: var(--byob-rail-bg);
+  border-radius: 999px;
+  padding: 1.75rem 1.25rem;
+  display: flex; flex-direction: column; align-items: center; gap: 1.25rem;
+}
+.byob-rail__heading {
+  font-size: 0.8rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  margin: 0; color: var(--byob-ink);
+}
+.byob-rail__track {
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  width: 100%;
 }
 
-.bb-cta-btn.is-loading .bb-cta-btn__label { opacity: 0; }
-
-.bb-spinner {
-  display: inline-block;
-  width: 1.25rem;
-  height: 1.25rem;
-  border: 3px solid rgba(255,255,255,.3);
-  border-block-start-color: #fff;
+/* a slot = ring (+ optional connector line below) */
+.byob-slot { display: flex; flex-direction: column; align-items: center; }
+.byob-slot__ring {
+  position: relative;
+  width: 74px; height: 74px;
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.bb-cta-hint {
-  font-size: var(--bb-font-size-xs);
-  text-align: center;
-  color: var(--bb-color-text-muted);
-  margin: 0;
-  min-height: 1.2em;
+.byob-slot__empty {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: #fff;
 }
-
-.bb-cta-hint.is-error { color: var(--bb-color-required); }
-.bb-cta-hint.is-success { color: var(--bb-color-success); }
-
-.bb-guarantee-text {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem;
-  font-size: var(--bb-font-size-xs);
-  color: var(--bb-color-text-muted);
-  margin: 0;
+.byob-slot__link {
+  width: 2px; height: 26px;
+  background: rgba(20,20,20,.25);
 }
-
-/* ── Mobile drawer ─────────────────────────────────────────────────────── */
-.bb-mobile-drawer {
-  display: none;
-  position: fixed;
-  inset-block-end: 0;
-  inset-inline: 0;
-  background: var(--bb-color-card-bg);
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -8px 32px rgba(0,0,0,.15);
-  z-index: 100;
-  transition: transform 0.35s ease;
+/* filled slot */
+.byob-slot.is-filled .byob-slot__ring {
+  border: 2px dashed rgba(20,20,20,.55);
 }
-
-@container (max-width: 900px) {
-  .bb-mobile-drawer { display: block; }
+.byob-slot__img {
+  width: 56px; height: 56px; border-radius: 50%;
+  object-fit: cover; background: #fff; display: block;
 }
-
-.bb-mobile-drawer__handle {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  cursor: pointer;
-  border-block-end: 1.5px solid var(--bb-color-card-border);
-}
-
-.bb-mobile-drawer__pill {
-  display: block;
-  width: 2.5rem; height: 4px;
-  background: var(--bb-color-card-border);
-  border-radius: 100px;
+.byob-slot__remove {
   position: absolute;
-  inset-block-start: 0.5rem;
-  inset-inline-start: 50%;
-  transform: translateX(-50%);
-}
-
-.bb-mobile-drawer__preview {
-  flex: 1;
-  font-size: var(--bb-font-size-sm);
-  font-weight: 600;
-}
-
-.bb-mobile-drawer__arrow { transition: transform var(--bb-transition); }
-.bb-mobile-drawer.is-open .bb-mobile-drawer__arrow { transform: rotate(180deg); }
-
-.bb-mobile-drawer__body {
-  display: none;
-  padding: 1rem;
-  max-height: 60vh;
-  overflow-y: auto;
-}
-
-.bb-mobile-drawer.is-open .bb-mobile-drawer__body { display: block; }
-
-/* ── Quick view dialog ─────────────────────────────────────────────────── */
-.bb-quick-view-dialog {
+  inset-block-start: 50%;
+  inset-inline-end: -10px;
+  transform: translateY(-50%);
+  width: 26px; height: 26px;
+  border-radius: 50%;
   border: none;
-  border-radius: var(--bb-radius-card);
-  padding: 0;
-  max-width: min(90vw, 700px);
-  width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,.2);
-  overflow: hidden;
-}
-
-.bb-quick-view-dialog::backdrop {
-  background: rgba(0,0,0,.5);
-  backdrop-filter: blur(4px);
-}
-
-.bb-quick-view-close {
-  position: absolute;
-  inset-block-start: 0.75rem;
-  inset-inline-end: 0.75rem;
-  width: 2rem; height: 2rem;
-  border-radius: 50%;
-  border: 1.5px solid var(--bb-color-card-border);
-  background: var(--bb-color-card-bg);
+  background: var(--byob-ink); color: #fff;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
 }
-
-.bb-quick-view-content { min-height: 200px; }
-
-.bb-quick-view-content .bb-quick-view-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem;
+.byob-slot__remove svg { width: 13px; height: 13px; }
+.byob-slot__qty {
+  position: absolute;
+  inset-block-end: -2px; inset-inline-start: -2px;
+  min-width: 20px; height: 20px; padding: 0 4px;
+  border-radius: 100px;
+  background: var(--byob-ink); color: #fff;
+  font-size: 0.68rem; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
-
-.bb-quick-view-content .bb-spinner { border-color: rgba(0,0,0,.2); border-block-start-color: var(--bb-color-primary); }
-
-.bb-quick-view-inner {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
+@media (prefers-reduced-motion: no-preference) {
+  .byob-slot.just-filled .byob-slot__ring { animation: byob-slotpop .4s cubic-bezier(.175,.885,.32,1.4); }
 }
+@keyframes byob-slotpop { 0%{transform:scale(.5);opacity:.3;} 70%{transform:scale(1.12);} 100%{transform:scale(1);opacity:1;} }
 
-.bb-quick-view-inner img {
+/* rail footer */
+.byob-rail__foot { width: 100%; display: flex; flex-direction: column; gap: 0.75rem; padding-inline: 0.25rem; }
+.byob-reward-bar { height: 6px; border-radius: 100px; background: rgba(20,20,20,.14); overflow: hidden; }
+.byob-reward-bar__fill {
+  height: 100%; width: 0%; border-radius: 100px;
+  background: var(--byob-ink);
+  transition: width .45s cubic-bezier(.4,0,.2,1);
+}
+.byob-rail__msg { margin: 0; font-size: 0.82rem; font-weight: 600; text-align: center; color: var(--byob-ink); min-height: 1.2em; }
+
+.byob-totals { display: flex; flex-direction: column; gap: 0.2rem; font-size: 0.85rem; }
+.byob-totals__row { display: flex; justify-content: space-between; align-items: center; }
+.byob-totals__row--strike { color: var(--byob-muted); }
+.byob-totals__row--save { color: var(--byob-success); font-weight: 700; }
+.byob-totals__row--total { font-size: 1.05rem; font-weight: 800; padding-block-start: 0.25rem; }
+
+/* ── CTA ───────────────────────────────────────────────────────────────── */
+.byob-cta {
+  position: relative;
   width: 100%;
-  aspect-ratio: 1;
-  object-fit: cover;
-  display: block;
+  border: none; cursor: pointer;
+  background: var(--byob-accent); color: #fff;
+  font-size: 0.85rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.95rem 1rem;
+  border-radius: 100px;
+  transition: transform .15s ease, opacity .2s ease;
+}
+.byob-cta:hover:not(:disabled) { transform: translateY(-1px); }
+.byob-cta:disabled, .byob-cta[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+.byob-cta.is-loading .byob-cta__label { opacity: 0; }
+.byob-cta__spin {
+  position: absolute; inset: 0; margin: auto;
+  width: 1.2rem; height: 1.2rem; border-radius: 50%;
+  border: 3px solid rgba(255,255,255,.35); border-block-start-color: #fff;
+  animation: byob-spin .7s linear infinite;
+}
+@keyframes byob-spin { to { transform: rotate(360deg); } }
+.byob-cta__hint { margin: 0; font-size: 0.75rem; text-align: center; color: var(--byob-muted); min-height: 1em; }
+.byob-cta__hint.is-error { color: #c0392b; }
+.byob-cta__hint.is-success { color: var(--byob-success); }
+
+/* ── Free-mini toast ───────────────────────────────────────────────────── */
+.byob-gift {
+  position: fixed;
+  inset-block-end: 1.25rem; inset-inline-start: 1.25rem;
+  z-index: 120;
+  display: flex; align-items: center; gap: 0.6rem;
+  background: var(--byob-ink); color: #fff;
+  padding: 0.75rem 1.1rem; border-radius: 100px;
+  box-shadow: 0 8px 28px rgba(0,0,0,.25);
+  animation: byob-rise .4s ease;
+}
+.byob-gift__text { font-size: 0.85rem; font-weight: 700; }
+@keyframes byob-rise { from { transform: translateY(1rem); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+/* ── Mobile bottom bar ─────────────────────────────────────────────────── */
+.byob-mobilebar { display: none; }
+@container (max-width: 900px) {
+  .byob-mobilebar {
+    display: block;
+    position: fixed; inset-inline: 0; inset-block-end: 0; z-index: 110;
+    background: var(--byob-rail-bg);
+    border-start-start-radius: 22px; border-start-end-radius: 22px;
+    box-shadow: 0 -6px 28px rgba(0,0,0,.16);
+    padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
+  }
+}
+.byob-mobilebar__top { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.byob-mobilebar__slots { display: flex; align-items: center; gap: 0.35rem; overflow: hidden; flex: 1; }
+.byob-mobilebar__total { font-size: 1rem; font-weight: 800; white-space: nowrap; }
+.byob-mobilebar__msg { margin: 0.5rem 0; font-size: 0.78rem; font-weight: 600; text-align: center; min-height: 1em; }
+
+.byob-mslot { position: relative; flex-shrink: 0; }
+.byob-mslot__img {
+  width: 38px; height: 38px; border-radius: 50%;
+  object-fit: cover; background: #fff;
+  border: 2px dashed rgba(20,20,20,.5);
+}
+.byob-mslot__empty {
+  width: 38px; height: 38px; border-radius: 50%; background: #fff; display: block;
+}
+.byob-mslot__sep { color: rgba(20,20,20,.4); font-weight: 700; }
+.byob-mslot__remove {
+  position: absolute; inset-block-end: -4px; inset-inline-end: -4px;
+  width: 18px; height: 18px; border-radius: 50%; border: none;
+  background: var(--byob-ink); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 0.6rem;
 }
 
-.bb-quick-view-inner__info {
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* ── RTL adjustments ───────────────────────────────────────────────────── */
-[dir="rtl"] .bb-search-icon { inset-inline-start: auto; inset-inline-end: 0.65rem; }
-[dir="rtl"] .bb-search-input { padding-inline: 0.75rem 2.5rem; }
-
-/* ── Focus visible ring ────────────────────────────────────────────────── */
-:is(.bb-tab, .bb-product-card__add-btn, .bb-cta-btn, .bb-wizard-btn, .bb-product-card):focus-visible {
-  outline: 3px solid var(--bb-color-accent);
+/* ── Focus rings ───────────────────────────────────────────────────────── */
+.byob :is(button, select, a):focus-visible {
+  outline: 3px solid var(--byob-accent);
   outline-offset: 2px;
 }
 
-/* ── Print: hide interactive chrome ───────────────────────────────────── */
-@media print {
-  .bb-mobile-drawer,
-  .bb-search-bar,
-  .bb-tabs,
-  .bb-wizard-controls,
-  .bb-cta-btn { display: none !important; }
-}
-
-/* ══════════════════════════════════════════════════════════════════════
-   OUAI-INSPIRED ENHANCEMENTS
-   ══════════════════════════════════════════════════════════════════════ */
-
-/* ── Checkmark overlay on selected product cards ───────────────────── */
-.bb-product-card__checkmark {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: color-mix(in srgb, var(--bb-color-accent) 18%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-.bb-product-card.is-selected .bb-product-card__checkmark {
-  opacity: 1;
-}
-
-.bb-product-card__checkmark-icon {
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
-  background: var(--bb-color-accent);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transform: scale(0.3);
-  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.4);
-  box-shadow: 0 4px 16px rgba(0,0,0,.22);
-}
-
-.bb-product-card.is-selected .bb-product-card__checkmark-icon {
-  transform: scale(1);
-}
-
-/* Selected card border glow */
-.bb-product-card.is-selected {
-  border-color: var(--bb-color-accent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bb-color-accent) 25%, transparent), var(--bb-shadow-card-hover);
-}
-
-/* Add button "selected" state — green fill with checkmark label */
-.bb-product-card.is-selected .bb-product-card__add-btn:not(:disabled) {
-  background: var(--bb-color-success, #27ae60);
-  border-color: var(--bb-color-success, #27ae60);
-  color: #fff;
-}
-
-.bb-product-card.is-selected .bb-product-card__add-btn:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--bb-color-success, #27ae60) 80%, black);
-  border-color: color-mix(in srgb, var(--bb-color-success, #27ae60) 80%, black);
-}
-
-/* Card bounce animation on add */
-@media (prefers-reduced-motion: no-preference) {
-  .bb-product-card.just-added {
-    animation: bb-cardBounce 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.4);
-  }
-}
-
-@keyframes bb-cardBounce {
-  0%   { transform: scale(1); }
-  35%  { transform: scale(1.035) translateY(-2px); }
-  65%  { transform: scale(0.98); }
-  100% { transform: scale(1); }
-}
-
-/* ── Slot visualization ────────────────────────────────────────────── */
-.bb-slots-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.bb-slots {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-}
-
-.bb-slot {
-  width: 46px;
-  height: 46px;
-  border-radius: 8px;
-  border: 2px dashed var(--bb-color-card-border);
-  background: var(--bb-color-bg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  transition: border-color 0.2s ease, transform 0.2s ease;
-  flex-shrink: 0;
-  position: relative;
-}
-
-.bb-slot.is-filled {
-  border: 2px solid var(--bb-color-accent);
-  background: var(--bb-color-card-bg);
-}
-
-.bb-slot__empty {
-  color: var(--bb-color-card-border);
-  display: flex;
-}
-
-.bb-slot__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.bb-slot__qty-badge {
-  position: absolute;
-  inset-block-end: 2px;
-  inset-inline-end: 2px;
-  background: var(--bb-color-accent);
-  color: #fff;
-  font-size: 0.6rem;
-  font-weight: 800;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .bb-slot.just-filled {
-    animation: bb-slotPop 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.4);
-  }
-  .bb-slot.just-emptied {
-    animation: bb-slotEmpty 0.2s ease;
-  }
-}
-
-@keyframes bb-slotPop {
-  0%   { transform: scale(0.6); opacity: 0.4; }
-  70%  { transform: scale(1.12); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes bb-slotEmpty {
-  0%   { transform: scale(1); opacity: 1; }
-  100% { transform: scale(0.7); opacity: 0.3; }
-}
-
-.bb-slots-label {
-  font-size: var(--bb-font-size-xs);
-  color: var(--bb-color-text-muted);
-  display: flex;
-  gap: 0.25rem;
-}
-
-.bb-slots-count {
-  font-weight: 700;
-  color: var(--bb-color-accent);
-}
-
-/* ── Tier progress bar (toward next discount) ──────────────────────── */
-.bb-tier-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-.bb-tier-progress-track {
-  height: 6px;
-  background: var(--bb-color-progress-bg);
-  border-radius: 100px;
-  overflow: hidden;
-}
-
-.bb-tier-progress-fill {
-  height: 100%;
-  background: linear-gradient(
-    to right,
-    var(--bb-color-tier-1, #2ecc71),
-    var(--bb-color-accent)
-  );
-  border-radius: 100px;
-  width: 0%;
-  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-[dir="rtl"] .bb-tier-progress-fill {
-  background: linear-gradient(
-    to left,
-    var(--bb-color-tier-1, #2ecc71),
-    var(--bb-color-accent)
-  );
-}
-
-.bb-tier-progress-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: var(--bb-font-size-xs);
-  color: var(--bb-color-text-muted);
-}
-
-.bb-tier-progress-label-end {
-  font-weight: 700;
-  color: var(--bb-color-tier-1, #2ecc71);
-}
-
-/* ── Mobile sticky bar (always-visible, OUAI-style) ────────────────── */
-@container (max-width: 900px) {
-  .bb-mobile-drawer {
-    transform: translateY(0);
-    border-top: 1.5px solid var(--bb-color-card-border);
-  }
-
-  .bb-mobile-drawer__slots-row {
-    display: flex;
-    gap: 0.3rem;
-    align-items: center;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  .bb-mobile-drawer__slot-thumb {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    border: 1.5px solid var(--bb-color-card-border);
-    object-fit: cover;
-    flex-shrink: 0;
-  }
-
-  .bb-mobile-drawer__slot-empty {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    border: 1.5px dashed var(--bb-color-card-border);
-    background: var(--bb-color-bg);
-    flex-shrink: 0;
-  }
-}
-
-/* ── Animated price number ─────────────────────────────────────────── */
-@media (prefers-reduced-motion: no-preference) {
-  .bb-bundle-total.price-changed {
-    animation: bb-priceFlash 0.35s ease;
-  }
-}
-
-@keyframes bb-priceFlash {
-  0%   { color: var(--bb-color-accent); transform: scale(1.08); }
-  100% { color: inherit; transform: scale(1); }
-}
-
-/* ── Discount milestone celebration ────────────────────────────────── */
-@media (prefers-reduced-motion: no-preference) {
-  .bb-tier-badge.just-unlocked {
-    animation: bb-tierUnlock 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.4);
-  }
-}
-
-@keyframes bb-tierUnlock {
-  0%   { transform: scale(1); }
-  40%  { transform: scale(1.18) rotate(-3deg); }
-  70%  { transform: scale(0.96) rotate(2deg); }
-  100% { transform: scale(1.05) rotate(0deg); }
-}
+/* ── Print ─────────────────────────────────────────────────────────────── */
+@media print { .byob-mobilebar, .byob-cta, .byob-card__add { display: none !important; } }
 </style>
 
 <script>
 (() => {
 'use strict';
 
-/* ═══════════════════════════════════════════════════════════════════════
-   BundleBuilder — Web Component
-   Al Moallem Mill · Kuwait · KWD · Arabic + English
-   ═══════════════════════════════════════════════════════════════════════ */
-
 class BundleBuilder extends HTMLElement {
-
-  /* ── Private fields ──────────────────────────────────────────────── */
-  #selections   = new Map();   // variantId → { productId, title, price, qty, img, panelIndex, isRequired, handle }
-  #tiers        = [];          // [{ qty, discount, label, color }]
-  #freeGift     = null;        // { id, title, image, threshold } | null
+  #sel = new Map();          // variantId -> {variantId,productId,title,price,qty,img,panel,isGift}
+  #tiers = [];
+  #freeGift = null;
   #freeGiftAdded = false;
-  #minQty       = 1;
-  #maxQty       = 6;
-  #bundleType   = 'mix_match';
-  #dir          = 'ltr';
-  #locale       = 'en';
-  #currency     = 'KWD';
-  #wizardStep   = 1;
-  #wizardTotal  = 1;
-  #wizardAnim   = 'slide';
-  #filterTags   = [];
-  #filterVendors = [];
-  #inventoryCache = new Map();  // handle → available (boolean)
-  #timerInterval  = null;
-  #searchDebounce = null;
-  #sectionId    = '';
-  #analyticsQueue = [];
+  #min = 3;
+  #max = 6;
+  #dir = 'ltr';
+  #currency = 'KWD';
+  #sectionId = '';
+  #i18nAr = {
+    add:'أضف', empty:'ابدأ بإضافة المنتجات لبناء طقمك.',
+    addmore:'أضف {n} منتجات أخرى لتوفير {d}٪',
+    addmore_gift:'أضف {n} منتجات أخرى لتوفير {d}٪ + هدية مجانية',
+    unlocked:'تم تفعيل خصم {d}٪!', unlocked_gift:'تم تفعيل خصم {d}٪ + هديتك المجانية!',
+    complete:'طقمك جاهز!', need_more:'أضف {n} منتجات للمتابعة',
+    added:'أُضيف إلى الطقم', removed:'أُزيل من الطقم',
+    full:'اكتمل الطقم! الحد الأقصى {n} منتجات.',
+    free:'مجاناً', added_cart:'تمت إضافة الطقم إلى السلة!',
+    cart_err:'حدث خطأ. حاول مرة أخرى.'
+  };
 
-  /* ── Lifecycle ───────────────────────────────────────────────────── */
   connectedCallback() {
-    this.#sectionId   = this.dataset.sectionId || this.closest('[data-section-id]')?.dataset.sectionId || '';
-    this.#bundleType  = this.dataset.bundleType || 'mix_match';
-    this.#minQty      = parseInt(this.dataset.min, 10) || 1;
-    this.#maxQty      = parseInt(this.dataset.max, 10) || 6;
-    this.#dir         = this.dataset.dir || document.documentElement.dir || 'ltr';
-    this.#locale      = this.dataset.locale || 'en';
-    this.#currency    = this.dataset.currency || 'KWD';
-    this.#wizardAnim  = this.dataset.wizardAnimation || 'slide';
+    const d = this.dataset;
+    this.#sectionId = d.sectionId || '';
+    this.#min = parseInt(d.min,10) || 3;
+    this.#max = parseInt(d.max,10) || 6;
+    this.#dir = d.dir || 'ltr';
+    this.#currency = d.currency || 'KWD';
+    try { this.#tiers = JSON.parse(decodeURIComponent(d.tiers||'[]')); } catch { this.#tiers = []; }
+    this.#tiers.sort((a,b)=>a.qty-b.qty);
+    try { this.#freeGift = JSON.parse(decodeURIComponent(d.freeGift||'null')); } catch { this.#freeGift = null; }
 
-    try { this.#tiers = JSON.parse(decodeURIComponent(this.dataset.tiers || '[]')); } catch { this.#tiers = []; }
-    try { this.#freeGift = JSON.parse(decodeURIComponent(this.dataset.freeGift || 'null')); } catch { this.#freeGift = null; }
-
-    const tagStr    = this.dataset.filterTags    || '';
-    const vendorStr = this.dataset.filterVendors || '';
-    this.#filterTags    = tagStr.split(',').map(s => s.trim()).filter(Boolean);
-    this.#filterVendors = vendorStr.split(',').map(s => s.trim()).filter(Boolean);
-
-    // Count wizard panels
-    const panels = this.querySelectorAll('.bb-step-panel, .bb-panel');
-    this.#wizardTotal = panels.length;
-
-    this.#bindEvents();
-    this.#initRequired();
-    this.#renderTiers();
-    this.#updateUI();
-    this.#initTimer();
-    this.#initSearch();
-    this.#prefetchInventory();
-    this.#initMobileDrawer();
-    this.#announceReady();
-
-    // Wizard step panel animations
-    if (this.#bundleType === 'wizard') {
-      this.#syncWizardStepPanels();
-    }
-  }
-
-  disconnectedCallback() {
-    if (this.#timerInterval) clearInterval(this.#timerInterval);
-  }
-
-  /* ── Event binding ───────────────────────────────────────────────── */
-  #bindEvents() {
-    // Delegate all clicks/changes within the component
-    this.addEventListener('click',  e => this.#onClick(e));
+    this.addEventListener('click', e => this.#onClick(e));
     this.addEventListener('change', e => this.#onChange(e));
-    this.addEventListener('keydown', e => this.#onKeydown(e));
-
-    // Mobile drawer handle (outside bundle-builder element, in same section)
-    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
-    if (section) {
-      const handle = section.querySelector('.bb-mobile-drawer__handle');
-      if (handle) {
-        handle.addEventListener('click', () => this.#toggleDrawer());
-        handle.addEventListener('keydown', e => {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.#toggleDrawer(); }
-        });
-      }
-    }
-
-    // Quick view dialog close on backdrop click
-    const dialog = this.querySelector('.bb-quick-view-dialog');
-    if (dialog) {
-      dialog.addEventListener('click', e => {
-        if (e.target === dialog) dialog.close();
-      });
-    }
+    this.#updateUI();
   }
 
+  /* ── i18n ───────────────────────────────────────────────────────────── */
+  #t(key, fallback, vars) {
+    let s = (this.#dir === 'rtl' && this.#i18nAr[key] != null) ? this.#i18nAr[key] : fallback;
+    if (vars) for (const k in vars) s = s.replace(`{${k}}`, vars[k]);
+    return s;
+  }
+
+  /* ── Events ─────────────────────────────────────────────────────────── */
   #onClick(e) {
-    const t = e.target.closest('[data-action]');
-    if (t) {
-      e.stopPropagation();
-      const action    = t.dataset.action;
-      const variantId = parseInt(t.dataset.variantId, 10);
-      const productId = parseInt(t.dataset.productId, 10);
-      if (action === 'add')    this.#addToSelection(variantId, productId, t);
-      if (action === 'remove') this.#removeFromSelection(variantId, productId, t);
+    const trg = e.target.closest('[data-action]');
+    if (!trg) return;
+    const act = trg.dataset.action;
+
+    if (act === 'add') {
+      const vId = parseInt(trg.dataset.variantId,10);
+      const pId = parseInt(trg.dataset.productId,10);
+      this.#add(vId, pId, trg.closest('.byob-card'));
       return;
     }
-
-    // Tab click
-    const tab = e.target.closest('.bb-tab');
-    if (tab) { this.#switchTab(parseInt(tab.dataset.tab, 10)); return; }
-
-    // Wizard step button
-    const wizBtn = e.target.closest('.bb-wizard-step-btn');
-    if (wizBtn) { this.#goToWizardStep(parseInt(wizBtn.dataset.step, 10)); return; }
-
-    // Wizard next/prev
-    if (e.target.closest(`#bb-next-${this.#sectionId}`)) { this.#wizardNext(); return; }
-    if (e.target.closest(`#bb-prev-${this.#sectionId}`)) { this.#wizardPrev(); return; }
-
-    // CTA
-    if (e.target.closest(`#bb-cta-${this.#sectionId}`) || e.target.closest('.bb-cta-btn--drawer')) {
-      this.#submitBundle(); return;
-    }
-
-    // Quick view
-    const qvBtn = e.target.closest('.bb-product-card__quick-view');
-    if (qvBtn) { this.#openQuickView(qvBtn.dataset.productHandle); return; }
-
-    // Close quick view
-    if (e.target.closest('.bb-quick-view-close')) {
-      this.querySelector('.bb-quick-view-dialog')?.close(); return;
-    }
-
-    // Sidebar qty buttons
-    const sideQtyBtn = e.target.closest('.bb-selection-item__qty-btn');
-    if (sideQtyBtn) {
-      const varId = parseInt(sideQtyBtn.closest('.bb-selection-item').dataset.variantId, 10);
-      if (sideQtyBtn.dataset.dir === 'up')   this.#incrementSelection(varId);
-      if (sideQtyBtn.dataset.dir === 'down') this.#decrementSelection(varId);
+    if (act === 'remove') {
+      this.#removeOne(parseInt(trg.dataset.variantId,10));
       return;
     }
-
-    // Card click — toggle add (if single-select card, not on button)
-    const card = e.target.closest('.bb-product-card');
-    if (card && !e.target.closest('button') && !e.target.closest('select')) {
-      const variantId = parseInt(card.dataset.variantId, 10);
-      const productId = parseInt(card.dataset.productId, 10);
-      const available = card.dataset.available === 'true';
-      if (!available) return;
-      if (this.#selections.has(variantId)) {
-        this.#decrementSelection(variantId);
-      } else {
-        this.#addToSelection(variantId, productId, card);
-      }
-    }
+    if (act === 'checkout') { this.#submit(); return; }
   }
 
   #onChange(e) {
-    // Variant select change — update card's data-variant-id and price
-    const sel = e.target.closest('.bb-product-card__variant-select');
-    if (sel) {
-      const card      = sel.closest('.bb-product-card');
-      const opt       = sel.selectedOptions[0];
-      const newVarId  = parseInt(sel.value, 10);
-      const oldVarId  = parseInt(card.dataset.variantId, 10);
-      const newPrice  = parseInt(opt.dataset.price, 10);
-      const available = opt.dataset.available === 'true';
+    const sel = e.target.closest('[data-variant-select]');
+    if (!sel) return;
+    const card = sel.closest('.byob-card');
+    const opt = sel.selectedOptions[0];
+    const newV = parseInt(sel.value,10);
+    const oldV = parseInt(card.dataset.variantId,10);
+    const price = parseInt(opt.dataset.price,10);
+    const avail = opt.dataset.available === 'true';
 
-      // If old variant was selected, swap it
-      if (this.#selections.has(oldVarId)) {
-        const old = this.#selections.get(oldVarId);
-        this.#selections.delete(oldVarId);
-        this.#selections.set(newVarId, { ...old, variantId: newVarId, price: newPrice });
-      }
-
-      card.dataset.variantId = newVarId;
-      card.dataset.price     = newPrice;
-      card.dataset.available = available;
-
-      const addBtn = card.querySelector('[data-action="add"]');
-      if (addBtn) {
-        addBtn.dataset.variantId = newVarId;
-        addBtn.disabled = !available;
-        addBtn.setAttribute('aria-disabled', String(!available));
-      }
-      const remBtn = card.querySelector('[data-action="remove"]');
-      if (remBtn) remBtn.dataset.variantId = newVarId;
-
-      const priceEl = card.querySelector('.bb-product-card__price');
-      if (priceEl) priceEl.textContent = this.#formatMoney(newPrice);
-
-      this.#updateUI();
+    if (this.#sel.has(oldV)) {
+      const old = this.#sel.get(oldV);
+      this.#sel.delete(oldV);
+      this.#sel.set(newV, {...old, variantId:newV, price});
     }
+    card.dataset.variantId = newV;
+    card.dataset.price = price;
+    card.dataset.available = avail;
+    const addBtn = card.querySelector('[data-action="add"]');
+    if (addBtn) { addBtn.dataset.variantId = newV; addBtn.disabled = !avail; }
+    const priceEl = card.querySelector('.byob-card__price');
+    if (priceEl) priceEl.textContent = this.#money(price);
+    this.#updateUI();
   }
 
-  #onKeydown(e) {
-    const card = e.target.closest('.bb-product-card');
-    if (card && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault();
-      card.querySelector('[data-action="add"]')?.click();
-    }
-  }
-
-  /* ── Selection management ────────────────────────────────────────── */
-  #addToSelection(variantId, productId, source) {
-    if (!variantId || !productId) return;
-    const total = this.#totalQuantity();
-
-    if (total >= this.#maxQty) {
-      this.#showHint(this.#dir === 'rtl' ? `اكتمل الطقم! الحد الأقصى ${this.#maxQty} منتجات.` : `Bundle full! Max ${this.#maxQty} items.`, 'error');
+  /* ── Selection ──────────────────────────────────────────────────────── */
+  #add(vId, pId, card) {
+    if (!vId) return;
+    if (this.#payableQty() >= this.#max) {
+      this.#hint(this.#t('full', `Bundle full! Max ${this.#max} items.`, {n:this.#max}), 'error');
       return;
     }
-
-    const card    = source.closest('.bb-product-card') || this.querySelector(`[data-variant-id="${variantId}"]`);
-    const title   = card?.dataset.title   || '';
-    const price   = parseInt(card?.dataset.price || '0', 10);
-    const img     = card?.querySelector('.bb-product-card__img')?.src || '';
-    const handle  = card?.dataset.handle  || '';
-    const panel   = parseInt(card?.dataset.panel || '1', 10);
-    const isReq   = card?.dataset.required === 'true';
+    const title = card?.dataset.title || '';
+    const price = parseInt(card?.dataset.price || '0', 10);
+    const img   = card?.querySelector('.byob-card__img')?.src || '';
+    const panel = parseInt(card?.dataset.panel || '0', 10);
 
     const prevTier = this.#activeTier();
-    if (this.#selections.has(variantId)) {
-      const entry = this.#selections.get(variantId);
-      this.#selections.set(variantId, { ...entry, qty: entry.qty + 1 });
+    if (this.#sel.has(vId)) {
+      const en = this.#sel.get(vId);
+      this.#sel.set(vId, {...en, qty: en.qty + 1});
     } else {
-      this.#selections.set(variantId, { variantId, productId, title, price, qty: 1, img, handle, panelIndex: panel, isRequired: isReq });
-    }
-
-    this.#updateUI();
-
-    // Play card bounce animation
-    if (card) this.#playAddAnimation(card);
-
-    // If a new discount tier just unlocked, celebrate the badge
-    const newTier = this.#activeTier();
-    if (newTier && (!prevTier || newTier.qty !== prevTier.qty)) {
-      const badge = this.querySelector(`.bb-tier-badge[data-qty="${newTier.qty}"]`);
-      if (badge) {
-        badge.classList.remove('just-unlocked');
-        void badge.offsetWidth;
-        badge.classList.add('just-unlocked');
-        setTimeout(() => badge.classList.remove('just-unlocked'), 600);
-      }
-    }
-
-    this.#track('bundle_product_add', { variantId, title, price });
-    this.#srAnnounce(`${title} ${this.#t('added_to_bundle', 'added to bundle')}`);
-  }
-
-  #removeFromSelection(variantId, productId, source) {
-    if (!this.#selections.has(variantId)) return;
-    const entry = this.#selections.get(variantId);
-    if (entry.isRequired) {
-      this.#showHint(this.#t('required_item', 'This item is required in the bundle.'), 'error');
-      return;
-    }
-    if (entry.qty > 1) {
-      this.#selections.set(variantId, { ...entry, qty: entry.qty - 1 });
-    } else {
-      this.#selections.delete(variantId);
+      this.#sel.set(vId, {variantId:vId, productId:pId, title, price, qty:1, img, panel});
     }
     this.#updateUI();
-    this.#track('bundle_product_remove', { variantId, title: entry.title });
-    this.#srAnnounce(`${entry.title} ${this.#t('removed_from_bundle', 'removed from bundle')}`);
+    if (card) { card.classList.remove('just-added'); void card.offsetWidth; card.classList.add('just-added'); setTimeout(()=>card.classList.remove('just-added'),420); }
+    this.#announce(`${title} ${this.#t('added','added to bundle')}`);
+
+    const t = this.#activeTier();
+    if (t && (!prevTier || t.qty !== prevTier.qty)) this.#announce(this.#rewardMessage());
   }
 
-  #incrementSelection(variantId) {
-    if (!this.#selections.has(variantId)) return;
-    if (this.#totalQuantity() >= this.#maxQty) { this.#showHint(this.#t('bundle_full', 'Bundle full!'), 'error'); return; }
-    const entry = this.#selections.get(variantId);
-    this.#selections.set(variantId, { ...entry, qty: entry.qty + 1 });
+  #removeOne(vId) {
+    const en = this.#sel.get(vId);
+    if (!en) return;
+    if (en.qty > 1) this.#sel.set(vId, {...en, qty: en.qty - 1});
+    else this.#sel.delete(vId);
     this.#updateUI();
+    this.#announce(`${en.title} ${this.#t('removed','removed from bundle')}`);
   }
 
-  #decrementSelection(variantId) {
-    if (!this.#selections.has(variantId)) return;
-    const entry = this.#selections.get(variantId);
-    if (entry.isRequired) { this.#showHint(this.#t('required_item', 'Required item cannot be removed.'), 'error'); return; }
-    if (entry.qty > 1) {
-      this.#selections.set(variantId, { ...entry, qty: entry.qty - 1 });
-    } else {
-      this.#selections.delete(variantId);
-    }
-    this.#updateUI();
-  }
+  /* ── Totals / tiers ─────────────────────────────────────────────────── */
+  #payableQty() { let n=0; for (const e of this.#sel.values()) if (!e.isGift) n+=e.qty; return n; }
+  #orig()  { let s=0; for (const e of this.#sel.values()) if (!e.isGift) s+=e.price*e.qty; return s; }
+  #activeTier() { const q=this.#payableQty(); let a=null; for (const t of this.#tiers) if (q>=t.qty) a=t; return a; }
+  #nextTier()   { const q=this.#payableQty(); return this.#tiers.find(t=>t.qty>q) || null; }
+  #disc() { const t=this.#activeTier(); const o=this.#orig(); return t ? Math.round(o*(1-t.discount/100)) : o; }
 
-  /* ── Required products init ──────────────────────────────────────── */
-  #initRequired() {
-    this.querySelectorAll('.bb-product-card[data-required="true"]').forEach(card => {
-      const variantId = parseInt(card.dataset.variantId, 10);
-      const productId = parseInt(card.dataset.productId, 10);
-      if (!this.#selections.has(variantId)) {
-        this.#addToSelection(variantId, productId, card);
-      }
-    });
-  }
-
-  /* ── Tiered discount ─────────────────────────────────────────────── */
-  #activeTier() {
-    const total = this.#totalQuantity();
-    let active = null;
-    for (const tier of this.#tiers) {
-      if (total >= tier.qty) active = tier;
-    }
-    return active;
-  }
-
-  #nextTier() {
-    const total = this.#totalQuantity();
-    return this.#tiers.find(t => t.qty > total) || null;
-  }
-
-  #renderTiers() {
-    const tierBadges = this.querySelectorAll('.bb-tier-badge');
-    const total = this.#totalQuantity();
-    const active = this.#activeTier();
-    const next   = this.#nextTier();
-
-    tierBadges.forEach(badge => {
-      const qty = parseInt(badge.dataset.qty, 10);
-      badge.classList.remove('is-active', 'is-next');
-      if (active && qty === active.qty) badge.classList.add('is-active');
-      else if (next && qty === next.qty) badge.classList.add('is-next');
-    });
-
-    // Sidebar active discount display
-    const discEl = this.querySelector('.bb-active-discount');
-    const nextEl  = this.querySelector('.bb-next-tier-hint');
-
-    if (discEl) {
-      if (active) {
-        discEl.hidden = false;
-        const textEl = discEl.querySelector('.bb-active-discount__text');
-        if (textEl) textEl.textContent = active.label || `${active.discount}% ${this.#t('off', 'off')}`;
-        discEl.style.setProperty('--tier-active-color', active.color || 'var(--bb-color-tier-1)');
-        discEl.style.borderColor = active.color || '';
-      } else {
-        discEl.hidden = true;
-      }
-    }
-
-    if (nextEl) {
-      if (next) {
-        nextEl.hidden = false;
-        const needed = next.qty - total;
-        const textEl = nextEl.querySelector('.bb-next-tier-hint__text');
-        if (textEl) {
-          textEl.textContent = this.#dir === 'rtl' ? `أضف ${needed} للحصول على خصم ${next.discount}%` : `Add ${needed} more for ${next.discount}% off`;
-        }
-      } else {
-        nextEl.hidden = true;
-      }
+  /* ── Free gift ──────────────────────────────────────────────────────── */
+  #checkGift() {
+    if (!this.#freeGift) return;
+    const reached = this.#payableQty() >= this.#freeGift.threshold;
+    const toast = this.querySelector('[data-gift]');
+    if (reached && !this.#freeGiftAdded) {
+      this.#freeGiftAdded = true;
+      this.#sel.set('gift_'+this.#freeGift.id, {
+        variantId:this.#freeGift.id, productId:this.#freeGift.id,
+        title:`${this.#freeGift.title} (${this.#t('free','Free')})`,
+        price:0, qty:1, img:this.#freeGift.image, panel:0, isGift:true
+      });
+      if (toast) { toast.hidden = false; setTimeout(()=>{ toast.hidden = true; }, 4000); }
+    } else if (!reached && this.#freeGiftAdded) {
+      this.#freeGiftAdded = false;
+      this.#sel.delete('gift_'+this.#freeGift.id);
     }
   }
 
-  /* ── Card bounce animation ───────────────────────────────────────── */
-  #playAddAnimation(card) {
-    if (!card) return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
-    card.classList.remove('just-added');
-    void card.offsetWidth;
-    card.classList.add('just-added');
-    setTimeout(() => card.classList.remove('just-added'), 450);
+  /* ── UI ─────────────────────────────────────────────────────────────── */
+  #updateUI() {
+    this.#checkGift();
+    this.#renderRail();
+    this.#renderCards();
+    this.#renderTotals();
+    this.#renderReward();
+    this.#renderMobile();
+    this.#renderCTA();
   }
 
-  /* ── Slot visualization ──────────────────────────────────────────── */
-  #renderSlots() {
-    const slotsEl = this.querySelector('.bb-slots');
-    const countEl = this.querySelector('.bb-slots-count');
-    const maxEl   = this.querySelector('.bb-slots-max');
-    if (!slotsEl) return;
+  // flatten selections to one entry per unit (gift last)
+  #units() {
+    const u = [];
+    for (const e of this.#sel.values()) if (!e.isGift) for (let i=0;i<e.qty;i++) u.push(e);
+    for (const e of this.#sel.values()) if (e.isGift) u.push(e);
+    return u;
+  }
 
-    const total = this.#totalQuantity();
-    if (countEl) countEl.textContent = total;
-    if (maxEl)   maxEl.textContent   = this.#maxQty;
-
-    // Build array of filled images (one per unit quantity)
-    const filled = [];
-    for (const entry of this.#selections.values()) {
-      if (entry.isGift) continue;
-      for (let i = 0; i < entry.qty; i++) {
-        filled.push({ img: entry.img, title: entry.title, qty: entry.qty });
-      }
-    }
-
-    const slots = slotsEl.querySelectorAll('.bb-slot');
+  #renderRail() {
+    const track = this.querySelector(`#byob-rail-${this.#sectionId}`);
+    if (!track) return;
+    const units = this.#units();
+    const slots = track.querySelectorAll('.byob-slot');
     slots.forEach((slot, i) => {
-      const wasFilledBefore = slot.classList.contains('is-filled');
-      if (i < filled.length) {
-        const item = filled[i];
-        if (!wasFilledBefore) {
-          slot.innerHTML = item.img
-            ? `<img class="bb-slot__img" src="${this.#escHtml(item.img)}" alt="${this.#escHtml(item.title)}" loading="lazy" width="46" height="46">`
-            : `<span class="bb-slot__empty" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></span>`;
-          slot.classList.add('is-filled', 'just-filled');
-          setTimeout(() => slot.classList.remove('just-filled'), 450);
+      const ring = slot.querySelector('.byob-slot__ring');
+      const had = slot.classList.contains('is-filled');
+      if (i < units.length) {
+        const it = units[i];
+        if (!had) {
+          ring.innerHTML =
+            `<img class="byob-slot__img" src="${this.#esc(it.img)}" alt="${this.#esc(it.title)}" width="56" height="56" loading="lazy">` +
+            (it.isGift ? `<span class="byob-slot__qty">${this.#t('free','Free')}</span>` :
+              `<button class="byob-slot__remove" type="button" data-action="remove" data-variant-id="${it.variantId}" aria-label="${this.#esc(it.title)} – remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>`);
+          slot.classList.add('is-filled','just-filled');
+          setTimeout(()=>slot.classList.remove('just-filled'),420);
+        } else {
+          // already filled — refresh image/handlers in case order shifted
+          const img = ring.querySelector('.byob-slot__img');
+          if (img && img.src !== it.img && it.img) img.src = it.img;
+          const rm = ring.querySelector('.byob-slot__remove');
+          if (rm) rm.dataset.variantId = it.variantId;
         }
-      } else {
-        if (wasFilledBefore) {
-          slot.classList.add('just-emptied');
-          setTimeout(() => {
-            slot.classList.remove('is-filled', 'just-emptied');
-            slot.innerHTML = `<span class="bb-slot__empty" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>`;
-          }, 220);
-        }
+      } else if (had) {
+        slot.classList.remove('is-filled');
+        ring.innerHTML = `<span class="byob-slot__empty"></span>`;
       }
     });
   }
 
-  /* ── Tier progress bar ───────────────────────────────────────────── */
-  #renderTierProgress() {
-    const wrap = this.querySelector('.bb-tier-progress');
-    if (!wrap) return;
+  #renderCards() {
+    const max = this.#max;
+    const full = this.#payableQty() >= max;
+    this.querySelectorAll('.byob-card').forEach(card => {
+      const vId = parseInt(card.dataset.variantId,10);
+      const en = this.#sel.get(vId);
+      const qty = en?.qty || 0;
+      const avail = card.dataset.available === 'true';
+      card.classList.toggle('is-selected', qty>0);
+      const btn = card.querySelector('[data-action="add"]');
+      const cnt = card.querySelector('[data-count]');
+      if (btn) btn.disabled = !avail || (full && qty===0);
+      if (cnt) { cnt.hidden = qty===0; cnt.textContent = qty; }
+    });
+  }
 
-    const total  = this.#totalQuantity();
+  #renderTotals() {
+    const o = this.#orig(), d = this.#disc(), saved = o-d, t = this.#activeTier();
+    this.querySelectorAll('[data-total]').forEach(el => el.textContent = this.#money(d));
+    const origEl = this.querySelector('[data-orig]');
+    const saveEl = this.querySelector('[data-save]');
+    if (origEl) origEl.textContent = this.#money(o);
+    if (saveEl) saveEl.textContent = `- ${this.#money(saved)}`;
+    const has = t && saved>0;
+    const oRow = this.querySelector('[data-orig-row]');
+    const sRow = this.querySelector('[data-save-row]');
+    if (oRow) oRow.hidden = !has;
+    if (sRow) sRow.hidden = !has;
+  }
+
+  #rewardMessage() {
+    const q = this.#payableGoalQty();
+    const next = this.#nextTier();
     const active = this.#activeTier();
-    const next   = this.#nextTier();
-
-    const fill      = wrap.querySelector('.bb-tier-progress-fill');
-    const track     = wrap.querySelector('.bb-tier-progress-track');
-    const labelStart = wrap.querySelector('.bb-tier-progress-label-start');
-    const labelEnd   = wrap.querySelector('.bb-tier-progress-label-end');
-
-    if (!next && !active) { wrap.hidden = true; return; }
-    wrap.hidden = false;
+    const giftThresh = this.#freeGift?.threshold;
+    const giftPending = giftThresh && q < giftThresh;
 
     if (next) {
-      const from = active ? active.qty : 0;
-      const to   = next.qty;
-      const pct  = Math.min(100, Math.max(0, ((total - from) / (to - from)) * 100));
-      if (fill)  fill.style.width = `${pct}%`;
-      if (track) track.setAttribute('aria-valuenow', Math.round(pct));
-      if (labelStart) labelStart.textContent = active ? `${active.discount}% off` : '';
-      if (labelEnd)   labelEnd.textContent   = `${next.discount}% ${this.#t('off', 'off')} (${next.qty - total} more)`;
-    } else if (active) {
-      // Max tier reached
-      if (fill)  fill.style.width = '100%';
-      if (track) track.setAttribute('aria-valuenow', 100);
-      if (labelStart) labelStart.textContent = '';
-      if (labelEnd) {
-        labelEnd.textContent = this.#dir === 'rtl' ? `خصم ${active.discount}% مفعّل!` : `${active.discount}% off applied!`;
-        labelEnd.style.color = active.color || '';
+      const n = next.qty - q;
+      const key = giftPending ? 'addmore_gift' : 'addmore';
+      const fb = giftPending
+        ? `Add ${n} more to save ${next.discount}% + a free mini`
+        : `Add ${n} more to save ${next.discount}%`;
+      return this.#t(key, fb, {n, d:next.discount});
+    }
+    if (active) {
+      const reachedGift = this.#freeGiftAdded;
+      const key = reachedGift ? 'unlocked_gift' : 'unlocked';
+      const fb = reachedGift
+        ? `You unlocked ${active.discount}% off + your free mini!`
+        : `You unlocked ${active.discount}% off!`;
+      return this.#t(key, fb, {d:active.discount});
+    }
+    return '';
+  }
+
+  // qty used to measure reward progress (payable, capped sensibly)
+  #payableGoalQty() { return this.#payableQty(); }
+
+  #renderReward() {
+    const msg = this.#rewardMessage() || this.#t('empty','Start adding products to build your bundle.');
+    this.querySelectorAll('[data-rail-msg]').forEach(el => el.textContent = msg);
+    const heroEl = this.querySelector('[data-reward]');
+    if (heroEl) heroEl.textContent = msg;
+
+    // progress bar toward next tier (full when the top tier is reached)
+    const fill = this.querySelector('[data-reward-fill]');
+    if (fill) {
+      const q = this.#payableQty();
+      const next = this.#nextTier();
+      const active = this.#activeTier();
+      let pct = 0;
+      if (next) {
+        const from = active ? active.qty : 0;
+        pct = ((q - from) / (next.qty - from)) * 100;
+      } else if (active) {
+        pct = 100;
+      } else if (this.#tiers.length) {
+        pct = (q / this.#tiers[0].qty) * 100;
       }
+      fill.style.width = `${Math.min(100, Math.max(0, pct))}%`;
     }
   }
 
-  /* ── Totals ──────────────────────────────────────────────────────── */
-  #totalQuantity() {
-    let total = 0;
-    for (const { qty } of this.#selections.values()) total += qty;
-    return total;
-  }
-
-  #originalTotal() {
-    let sum = 0;
-    for (const { price, qty } of this.#selections.values()) sum += price * qty;
-    return sum;
-  }
-
-  #discountedTotal() {
-    const tier = this.#activeTier();
-    const orig = this.#originalTotal();
-    if (!tier) return orig;
-    return Math.round(orig * (1 - tier.discount / 100));
-  }
-
-  /* ── Free gift ───────────────────────────────────────────────────── */
-  #checkFreeGift() {
-    if (!this.#freeGift) return;
-    const total = this.#totalQuantity();
-    const banner = this.querySelector('.bb-free-gift-banner');
-
-    if (total >= this.#freeGift.threshold) {
-      if (banner) banner.hidden = false;
-      if (!this.#freeGiftAdded) {
-        this.#freeGiftAdded = true;
-        // Auto-add free gift variant to selections at price 0
-        const giftId = this.#freeGift.id;
-        this.#selections.set(giftId, {
-          variantId: giftId,
-          productId: giftId,
-          title: `${this.#freeGift.title} (${this.#t('free', 'Free')})`,
-          price: 0,
-          qty: 1,
-          img: this.#freeGift.image,
-          panelIndex: 0,
-          isRequired: true,
-          isGift: true
-        });
-        this.#srAnnounce(this.#t('free_gift_unlocked', "Free gift unlocked!"));
-      }
-    } else {
-      if (banner) banner.hidden = true;
-      if (this.#freeGiftAdded) {
-        this.#freeGiftAdded = false;
-        this.#selections.delete(this.#freeGift.id);
-      }
-    }
-  }
-
-  /* ── Main UI update ──────────────────────────────────────────────── */
-  #updateUI() {
-    this.#checkFreeGift();
-    this.#renderTiers();
-    this.#renderProgress();
-    this.#renderSlots();
-    this.#renderTierProgress();
-    this.#renderSelectionList();
-    this.#renderPriceSummary();
-    this.#renderCardStates();
-    this.#renderCTA();
-    this.#renderMobileDrawerPreview();
-
-    if (this.#bundleType === 'wizard') {
-      this.#renderWizardControls();
-    }
-  }
-
-  /* ── Progress bar ────────────────────────────────────────────────── */
-  #renderProgress() {
-    const total = this.#totalQuantity();
-    const pct   = Math.min(100, (total / this.#maxQty) * 100);
-
-    const fill    = this.querySelector('.bb-progress-fill');
-    const bar     = this.querySelector('.bb-progress-bar');
-    const current = this.querySelector('.bb-progress-current');
-    const remaining = this.querySelector('.bb-progress-remaining');
-    const hint    = this.querySelector('.bb-progress-hint');
-
-    if (fill)  { fill.style.width = `${pct}%`; }
-    if (bar)   { bar.setAttribute('aria-valuenow', total); }
-    if (current) current.textContent = total;
-    if (remaining) remaining.textContent = Math.max(0, this.#maxQty - total);
-
-    if (hint && total >= this.#maxQty) {
-      hint.textContent = this.#t('bundle_complete', 'Bundle complete! Ready to add to cart.');
-    }
-  }
-
-  /* ── Selection list (sidebar) ────────────────────────────────────── */
-  #renderSelectionList() {
-    const list = this.querySelector('.bb-selection-list');
-    if (!list) return;
-
-    if (this.#selections.size === 0) {
-      list.innerHTML = `<li class="bb-selection-empty">${this.#t('empty_state', 'Your bundle is empty. Start adding products!')}</li>`;
-      return;
-    }
-
-    const items = [];
-    for (const [varId, entry] of this.#selections) {
-      items.push(`
-        <li class="bb-selection-item" data-variant-id="${varId}">
-          <img
-            class="bb-selection-item__img"
-            src="${entry.img || ''}"
-            alt="${this.#escHtml(entry.title)}"
-            loading="lazy"
-            width="40" height="40"
-            onerror="this.style.visibility='hidden'"
-          >
-          <div class="bb-selection-item__info">
-            <div class="bb-selection-item__title">${this.#escHtml(entry.title)}</div>
-            <div class="bb-selection-item__price">${this.#formatMoney(entry.price * entry.qty)}</div>
-          </div>
-          <div class="bb-selection-item__qty-controls">
-            <button class="bb-selection-item__qty-btn" data-dir="down" aria-label="${this.#t('decrease_qty', 'Decrease quantity')}" ${entry.isRequired && entry.qty <= 1 ? 'disabled' : ''}>−</button>
-            <span class="bb-selection-item__qty" aria-label="${this.#t('quantity', 'Quantity')}: ${entry.qty}">${entry.qty}</span>
-            <button class="bb-selection-item__qty-btn" data-dir="up" aria-label="${this.#t('increase_qty', 'Increase quantity')}" ${this.#totalQuantity() >= this.#maxQty ? 'disabled' : ''}>+</button>
-          </div>
-        </li>
-      `);
-    }
-    list.innerHTML = items.join('');
-  }
-
-  /* ── Price summary ───────────────────────────────────────────────── */
-  #renderPriceSummary() {
-    const orig  = this.#originalTotal();
-    const disc  = this.#discountedTotal();
-    const saved = orig - disc;
-    const tier  = this.#activeTier();
-
-    const totalEl   = this.querySelector('.bb-bundle-total');
-    const origRow   = this.querySelector('.bb-price-row--original');
-    const origEl    = this.querySelector('.bb-original-total');
-    const savRow    = this.querySelector('.bb-price-row--savings');
-    const savEl     = this.querySelector('.bb-savings-amount');
-
-    if (totalEl) {
-      const prev = totalEl.textContent;
-      const next = this.#formatMoney(disc);
-      if (prev !== next) {
-        totalEl.textContent = next;
-        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-          totalEl.classList.remove('price-changed');
-          void totalEl.offsetWidth;
-          totalEl.classList.add('price-changed');
-          setTimeout(() => totalEl.classList.remove('price-changed'), 400);
-        }
-      }
-    }
-    if (origEl)   origEl.textContent   = this.#formatMoney(orig);
-    if (savEl)    savEl.textContent    = `- ${this.#formatMoney(saved)}`;
-
-    const hasSaving = tier && saved > 0;
-    if (origRow)  origRow.hidden = !hasSaving;
-    if (savRow)   savRow.hidden  = !hasSaving;
-  }
-
-  /* ── Card states ─────────────────────────────────────────────────── */
-  #renderCardStates() {
-    const total = this.#totalQuantity();
-    const atMax = total >= this.#maxQty;
-
-    this.querySelectorAll('.bb-product-card').forEach(card => {
-      const varId = parseInt(card.dataset.variantId, 10);
-      const entry = this.#selections.get(varId);
-      const qty   = entry?.qty || 0;
-      const available = card.dataset.available === 'true';
-
-      card.classList.toggle('is-selected', qty > 0);
-
-      const addBtn  = card.querySelector('[data-action="add"]');
-      const remBtn  = card.querySelector('[data-action="remove"]');
-      const qtyDisp = card.querySelector('.bb-product-card__qty-display');
-
-      if (addBtn) {
-        const shouldDisable = !available || (atMax && qty === 0);
-        addBtn.disabled = shouldDisable;
-        addBtn.setAttribute('aria-disabled', String(shouldDisable));
-        if (qty > 0) {
-          addBtn.querySelector('.bb-btn-label').textContent = this.#t('add_more', 'Add More');
-        } else {
-          addBtn.querySelector('.bb-btn-label').textContent = this.#t('add', 'Add');
-        }
-      }
-
-      if (remBtn) {
-        remBtn.hidden = qty === 0;
-        remBtn.disabled = entry?.isRequired && qty <= 1;
-      }
-
-      if (qtyDisp) {
-        qtyDisp.hidden = qty === 0;
-        qtyDisp.textContent = qty;
-        qtyDisp.setAttribute('aria-label', `${this.#t('quantity', 'Quantity')}: ${qty}`);
-      }
+  #renderMobile() {
+    const wrap = document.querySelector(`#byob-mobilebar-${this.#sectionId} [data-mobile-slots]`);
+    if (!wrap) return;
+    const units = this.#units();
+    const shownEmpties = Math.max(0, Math.min(this.#max - units.length, 4));
+    const parts = [];
+    units.slice(0, 6).forEach((it,idx) => {
+      parts.push(
+        `<span class="byob-mslot">` +
+        `<img class="byob-mslot__img" src="${this.#esc(it.img)}" alt="" width="38" height="38">` +
+        (it.isGift ? '' : `<button class="byob-mslot__remove" type="button" data-action="remove" data-variant-id="${it.variantId}" aria-label="remove">✕</button>`) +
+        `</span>`
+      );
     });
+    for (let i=0;i<shownEmpties;i++) parts.push(`<span class="byob-mslot"><span class="byob-mslot__empty"></span></span>`);
+    wrap.innerHTML = parts.join(`<span class="byob-mslot__sep">–</span>`);
   }
 
-  /* ── CTA state ───────────────────────────────────────────────────── */
   #renderCTA() {
-    const total    = this.#totalQuantity();
-    const ready    = total >= this.#minQty;
-    const ctaBtn   = this.querySelector(`#bb-cta-${this.#sectionId}`);
-    const drawerCta = this.closest('.bundle-builder-section')?.querySelector('.bb-cta-btn--drawer');
-
-    [ctaBtn, drawerCta].forEach(btn => {
-      if (!btn) return;
+    const ready = this.#payableQty() >= this.#min;
+    this.querySelectorAll('[data-action="checkout"]').forEach(btn => {
       btn.disabled = !ready;
       btn.setAttribute('aria-disabled', String(!ready));
     });
-
-    const hint = this.querySelector('.bb-cta-hint');
+    const hint = this.querySelector('[data-hint]');
     if (hint && !hint.classList.contains('is-error') && !hint.classList.contains('is-success')) {
-      if (!ready) {
-        const needed = this.#minQty - total;
-        hint.textContent = this.#dir === 'rtl' ? `أضف ${needed} منتجات للمتابعة` : `Add ${needed} more item(s) to proceed`;
-      } else {
-        hint.textContent = '';
-      }
+      const need = this.#min - this.#payableQty();
+      hint.textContent = ready ? '' : this.#t('need_more', `Add ${need} more item(s) to proceed`, {n:need});
     }
   }
 
-  /* ── Wizard ──────────────────────────────────────────────────────── */
-  #syncWizardStepPanels() {
-    const panels = this.querySelectorAll('.bb-step-panel');
-    const anim   = this.#wizardAnim;
-    panels.forEach(p => p.dataset.animation = anim);
-  }
-
-  /**
-   * Restart the step-panel entrance animation every time a panel is shown.
-   *
-   * CSS @keyframes animations only fire when an element FIRST matches the
-   * animation selector. Re-toggling `is-active` on a panel that was
-   * `display:none` will NOT replay the animation on its own — the browser
-   * needs a forced reflow between clearing and re-applying the animation.
-   * We also flip the slide direction for "back" navigation and for RTL.
-   */
-  #playStepTransition(panel, goingBack) {
-    if (!panel) return;
-
-    // Respect the visitor's reduced-motion preference — skip animation.
-    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      return;
-    }
-
-    let anim = this.#wizardAnim || 'slide';
-
-    // For "slide", pick the axis that reads correctly for direction + locale.
-    // Forward in LTR slides in from the end (right); back slides from start.
-    // RTL mirrors both. `slide-back` / `slide-rtl*` map to dedicated keyframes.
-    if (anim === 'slide') {
-      const rtl = this.#dir === 'rtl';
-      if (goingBack) {
-        anim = rtl ? 'slide' : 'slide-back';
-      } else {
-        anim = rtl ? 'slide-rtl' : 'slide';
-      }
-    }
-
-    // Clear, force a reflow, then re-apply so the keyframes restart cleanly.
-    panel.dataset.animation = '';
-    // eslint-disable-next-line no-unused-expressions
-    void panel.offsetWidth; // forced reflow — do not remove
-    panel.dataset.animation = anim;
-  }
-
-  #goToWizardStep(step) {
-    if (step < 1 || step > this.#wizardTotal) return;
-    const canAdvance = this.#wizardStepIsComplete(this.#wizardStep);
-    if (step > this.#wizardStep && !canAdvance) {
-      this.#showHint(this.#t('complete_step', 'Complete this step first.'), 'error');
-      return;
-    }
-
-    // Direction of travel — used to flip the slide axis (and to honour RTL).
-    const goingBack = step < this.#wizardStep;
-
-    const panels   = this.querySelectorAll('.bb-step-panel, .bb-panel');
-    const stepBtns = this.querySelectorAll('.bb-wizard-step-btn');
-
-    panels.forEach((p, i) => {
-      const willBeActive = i + 1 === step;
-      p.classList.toggle('is-active', willBeActive);
-      if (willBeActive) this.#playStepTransition(p, goingBack);
-    });
-    stepBtns.forEach(btn => {
-      const n = parseInt(btn.dataset.step, 10);
-      btn.classList.toggle('is-active', n === step);
-      btn.setAttribute('aria-selected', String(n === step));
-      btn.classList.toggle('is-complete', n < step);
-    });
-
-    this.#wizardStep = step;
-
-    // Update progress text
-    const curr = this.querySelector('.bb-wizard-step-current');
-    if (curr) curr.textContent = step;
-
-    this.#renderWizardControls();
-    this.#srAnnounce(this.#dir === 'rtl' ? `خطوة ${step} من ${this.#wizardTotal}` : `Step ${step} of ${this.#wizardTotal}`);
-  }
-
-  #wizardNext() { this.#goToWizardStep(this.#wizardStep + 1); }
-  #wizardPrev() { this.#goToWizardStep(this.#wizardStep - 1); }
-
-  #wizardStepIsComplete(step) {
-    const panel = this.querySelector(`.bb-step-panel[data-panel="${step}"], .bb-panel[data-panel="${step}"]`);
-    if (!panel) return true;
-    const stepMin = parseInt(panel.dataset.stepMin, 10) || 1;
-    // Count selections belonging to this panel
-    let panelQty = 0;
-    for (const entry of this.#selections.values()) {
-      if (entry.panelIndex === step) panelQty += entry.qty;
-    }
-    return panelQty >= stepMin;
-  }
-
-  #renderWizardControls() {
-    const prevBtn = this.querySelector(`#bb-prev-${this.#sectionId}`);
-    const nextBtn = this.querySelector(`#bb-next-${this.#sectionId}`);
-    if (!prevBtn || !nextBtn) return;
-
-    prevBtn.hidden   = this.#wizardStep <= 1;
-    prevBtn.disabled = this.#wizardStep <= 1;
-
-    const isLast = this.#wizardStep >= this.#wizardTotal;
-    nextBtn.hidden   = isLast;
-    nextBtn.disabled = isLast || !this.#wizardStepIsComplete(this.#wizardStep);
-
-    // On last step, CTA becomes primary action — ensure visibility
-    const ctaBtn = this.querySelector(`#bb-cta-${this.#sectionId}`);
-    if (ctaBtn) {
-      ctaBtn.style.display = isLast ? '' : 'none';
-    }
-  }
-
-  /* ── Cart submission ─────────────────────────────────────────────── */
-  async #submitBundle() {
-    if (this.#totalQuantity() < this.#minQty) return;
-
-    const ctaBtn = this.querySelector(`#bb-cta-${this.#sectionId}`);
-    const spinner = ctaBtn?.querySelector('.bb-cta-btn__spinner');
-    const label   = ctaBtn?.querySelector('.bb-cta-btn__label');
-
-    if (ctaBtn) { ctaBtn.classList.add('is-loading'); ctaBtn.disabled = true; }
-    if (spinner) spinner.hidden = false;
-    if (label)   label.style.opacity = '0';
-
+  /* ── Submit ─────────────────────────────────────────────────────────── */
+  async #submit() {
+    if (this.#payableQty() < this.#min) return;
     const tier = this.#activeTier();
-    const bundleKey = `bundle-${Date.now()}`;
-
+    const key = `bundle-${Date.now()}`;
     const items = [];
-    for (const [varId, entry] of this.#selections) {
-      if (entry.isGift) continue; // free gift added separately
-      const props = {
-        _bundle_id:           bundleKey,
-        _bundle_type:         this.#bundleType,
-        _bundle_discount_pct: tier ? String(tier.discount) : '0',
-      };
-      if (entry.panelIndex) props._bundle_step = String(entry.panelIndex);
-
-      items.push({ id: varId, quantity: entry.qty, properties: props });
+    for (const e of this.#sel.values()) {
+      if (e.isGift) continue;
+      items.push({ id:e.variantId, quantity:e.qty, properties:{
+        _bundle_id:key, _bundle_discount_pct: tier ? String(tier.discount) : '0'
+      }});
     }
-
-    // Add free gift if applicable
     if (this.#freeGiftAdded && this.#freeGift) {
-      items.push({
-        id: this.#freeGift.id,
-        quantity: 1,
-        properties: { _bundle_id: bundleKey, _bundle_type: 'free_gift', _free_gift: 'true' }
-      });
+      items.push({ id:this.#freeGift.id, quantity:1, properties:{ _bundle_id:key, _free_gift:'true' }});
     }
+
+    const ctas = [...this.querySelectorAll('[data-action="checkout"]')];
+    ctas.forEach(b => { b.classList.add('is-loading'); b.disabled = true; const s=b.querySelector('.byob-cta__spin'); if(s)s.hidden=false; });
 
     try {
       const resp = await fetch('/cart/add.js', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body:    JSON.stringify({ items }),
+        method:'POST',
+        headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'},
+        body: JSON.stringify({ items })
       });
-
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ description: 'Unknown error' }));
-        throw new Error(err.description || resp.statusText);
-      }
-
-      this.#track('bundle_add_to_cart', {
-        bundle_type: this.#bundleType,
-        total_qty:   this.#totalQuantity(),
-        total_value: this.#discountedTotal(),
-        discount:    tier?.discount || 0,
-      });
-
-      this.#showHint(this.#t('added_to_cart', 'Bundle added to cart!'), 'success');
-      this.#srAnnounce(this.#t('added_to_cart', 'Bundle added to cart!'));
-
-      // Optional redirect to cart
-      if (this.dataset.redirectToCart === 'true') {
-        window.location.href = '/cart';
-      }
-
+      if (!resp.ok) { const er = await resp.json().catch(()=>({})); throw new Error(er.description || resp.statusText); }
+      this.#hint(this.#t('added_cart','Bundle added to cart!'), 'success');
+      this.#announce(this.#t('added_cart','Bundle added to cart!'));
+      if (this.dataset.redirect === 'true') window.location.href = '/cart';
+      else document.dispatchEvent(new CustomEvent('cart:refresh'));
     } catch (err) {
-      this.#showHint(err.message || this.#t('cart_error', 'Something went wrong. Please try again.'), 'error');
+      this.#hint(err.message || this.#t('cart_err','Something went wrong. Please try again.'), 'error');
     } finally {
-      if (ctaBtn) { ctaBtn.classList.remove('is-loading'); ctaBtn.disabled = false; }
-      if (spinner) spinner.hidden = true;
-      if (label)   label.style.opacity = '';
+      ctas.forEach(b => { b.classList.remove('is-loading'); const s=b.querySelector('.byob-cta__spin'); if(s)s.hidden=true; });
       this.#renderCTA();
     }
   }
 
-  /* ── Tab switching ───────────────────────────────────────────────── */
-  #switchTab(tabIndex) {
-    const tabs   = this.querySelectorAll('.bb-tab');
-    const panels = this.querySelectorAll('.bb-panel');
-
-    tabs.forEach(t => {
-      const active = parseInt(t.dataset.tab, 10) === tabIndex;
-      t.classList.toggle('is-active', active);
-      t.setAttribute('aria-selected', String(active));
-    });
-
-    panels.forEach(p => {
-      const active = parseInt(p.dataset.panel, 10) === tabIndex;
-      p.classList.toggle('is-active', active);
-    });
+  /* ── Helpers ────────────────────────────────────────────────────────── */
+  #money(amount) {
+    const c = this.#currency || 'KWD';
+    const dec = (c==='KWD'||c==='BHD'||c==='OMR') ? 3 : 2;
+    return `${c} ${(amount/Math.pow(10,dec)).toFixed(dec)}`;
   }
-
-  /* ── Mobile drawer ───────────────────────────────────────────────── */
-  #initMobileDrawer() {
-    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
-    const drawer  = section?.querySelector('.bb-mobile-drawer');
-    if (drawer) drawer.setAttribute('aria-hidden', 'false');
+  #esc(s) { return String(s||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  #hint(msg, type) {
+    const h = this.querySelector('[data-hint]');
+    if (!h) return;
+    h.textContent = msg;
+    h.classList.toggle('is-error', type==='error');
+    h.classList.toggle('is-success', type==='success');
+    if (type) setTimeout(()=>{ h.classList.remove('is-error','is-success'); this.#renderCTA(); }, 3500);
   }
-
-  #toggleDrawer() {
-    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
-    const drawer  = section?.querySelector('.bb-mobile-drawer');
-    if (!drawer) return;
-    const isOpen = drawer.classList.toggle('is-open');
-    drawer.setAttribute('aria-hidden', String(!isOpen));
-    if (isOpen) this.#cloneSidebarToDrawer();
-  }
-
-  #cloneSidebarToDrawer() {
-    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
-    const inner   = section?.querySelector('.bb-mobile-drawer__inner');
-    const sidebar = this.querySelector('.bb-selection-summary');
-    if (inner && sidebar) inner.innerHTML = sidebar.outerHTML;
-  }
-
-  #renderMobileDrawerPreview() {
-    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
-    if (!section) return;
-    const qtyEl   = section.querySelector('.bb-drawer-qty');
-    const totalEl = section.querySelector('.bb-drawer-total');
-    if (qtyEl)   qtyEl.textContent   = this.#totalQuantity();
-    if (totalEl) totalEl.textContent = this.#formatMoney(this.#discountedTotal());
-
-    // Slot thumbnails in the drawer handle row
-    const preview = section.querySelector('.bb-mobile-drawer__preview');
-    if (preview) {
-      const filled = [];
-      for (const entry of this.#selections.values()) {
-        if (!entry.isGift) filled.push(entry);
-      }
-      const thumbsHtml = filled.map(e =>
-        e.img
-          ? `<img class="bb-mobile-drawer__slot-thumb" src="${this.#escHtml(e.img)}" alt="${this.#escHtml(e.title)}" width="32" height="32" loading="lazy">`
-          : `<span class="bb-mobile-drawer__slot-empty"></span>`
-      ).join('');
-      const empties = Math.max(0, Math.min(3, this.#maxQty - filled.length));
-      const emptiesHtml = Array(empties).fill('<span class="bb-mobile-drawer__slot-empty"></span>').join('');
-      preview.innerHTML = `
-        <span class="bb-mobile-drawer__slots-row">${thumbsHtml}${empties < this.#maxQty ? '' : ''}${empties > 0 ? emptiesHtml : ''}</span>
-        <strong class="bb-drawer-total">${this.#formatMoney(this.#discountedTotal())}</strong>
-      `;
-    }
-
-    const drawerCta = section.querySelector('.bb-cta-btn--drawer');
-    if (drawerCta) {
-      const ready = this.#totalQuantity() >= this.#minQty;
-      drawerCta.disabled = !ready;
-      drawerCta.setAttribute('aria-disabled', String(!ready));
-    }
-  }
-
-  /* ── Quick view ──────────────────────────────────────────────────── */
-  async #openQuickView(handle) {
-    const dialog  = this.querySelector('.bb-quick-view-dialog');
-    const content = this.querySelector('.bb-quick-view-content');
-    if (!dialog || !content || !handle) return;
-
-    content.innerHTML = `<div class="bb-quick-view-loading"><div class="bb-spinner"></div></div>`;
-    dialog.showModal?.() || dialog.setAttribute('open', '');
-
-    try {
-      const resp = await fetch(`/products/${handle}?view=json`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-      if (!resp.ok) throw new Error('Not found');
-      const html = await resp.text();
-
-      // Fallback: load from products/{handle}.js
-      const jsonResp = await fetch(`/products/${handle}.js`);
-      const data = await jsonResp.json();
-
-      content.innerHTML = `
-        <div class="bb-quick-view-inner">
-          <img
-            src="${data.featured_image || ''}"
-            alt="${this.#escHtml(data.title)}"
-            loading="lazy"
-            width="400" height="400"
-          >
-          <div class="bb-quick-view-inner__info">
-            <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--bb-color-text-muted)">${this.#escHtml(data.vendor)}</p>
-            <h3 style="margin:0 0 .5rem;font-size:1.25rem">${this.#escHtml(data.title)}</h3>
-            <p style="font-weight:700;font-size:1.1rem">${this.#formatMoney(data.price)}</p>
-            <p style="font-size:.875rem;color:var(--bb-color-text-muted);line-height:1.6">${data.description?.replace(/<[^>]+>/g, '').slice(0, 200) || ''}…</p>
-            <a href="/products/${handle}" style="font-size:.875rem;color:var(--bb-color-accent)">
-              ${this.#t('view_full', 'View full product')} →
-            </a>
-          </div>
-        </div>
-      `;
-    } catch {
-      content.innerHTML = `<p style="padding:2rem;text-align:center">${this.#t('quick_view_error', 'Could not load product details.')}</p>`;
-    }
-  }
-
-  /* ── Inventory async check ───────────────────────────────────────── */
-  async #prefetchInventory() {
-    const cards = this.querySelectorAll('.bb-product-card[data-handle]');
-    const handles = [...new Set([...cards].map(c => c.dataset.handle).filter(Boolean))];
-
-    // Stagger requests to avoid hammering the server
-    for (const handle of handles.slice(0, 20)) {
-      if (this.#inventoryCache.has(handle)) continue;
-      try {
-        const resp = await fetch(`/products/${handle}.js`, { priority: 'low' });
-        if (!resp.ok) continue;
-        const data = await resp.json();
-        const available = data.available === true;
-        this.#inventoryCache.set(handle, available);
-
-        // Update any card with this handle
-        this.querySelectorAll(`[data-handle="${handle}"]`).forEach(card => {
-          const wasAvailable = card.dataset.available === 'true';
-          if (wasAvailable !== available) {
-            card.dataset.available = available;
-            // Re-render card state
-            this.#renderCardStates();
-          }
-        });
-      } catch { /* silently skip */ }
-
-      // Small yield to not block main thread
-      await new Promise(r => setTimeout(r, 80));
-    }
-  }
-
-  /* ── Countdown timer ─────────────────────────────────────────────── */
-  #initTimer() {
-    const timerBar = this.closest('.bundle-builder-section')?.querySelector('.bb-timer-bar');
-    if (!timerBar) return;
-
-    const endStr = timerBar.dataset.end;
-    if (!endStr) return;
-
-    const endDate = new Date(endStr).getTime();
-    if (isNaN(endDate)) return;
-
-    const update = () => {
-      const diff = endDate - Date.now();
-      if (diff <= 0) {
-        timerBar.hidden = true;
-        clearInterval(this.#timerInterval);
-        return;
-      }
-      const days    = Math.floor(diff / 86400000);
-      const hours   = Math.floor((diff % 86400000) / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-
-      timerBar.querySelector('[data-unit="days"]').textContent    = String(days).padStart(2, '0');
-      timerBar.querySelector('[data-unit="hours"]').textContent   = String(hours).padStart(2, '0');
-      timerBar.querySelector('[data-unit="minutes"]').textContent = String(minutes).padStart(2, '0');
-      timerBar.querySelector('[data-unit="seconds"]').textContent = String(seconds).padStart(2, '0');
-    };
-
-    update();
-    this.#timerInterval = setInterval(update, 1000);
-  }
-
-  /* ── Search / filter ─────────────────────────────────────────────── */
-  #initSearch() {
-    const input = this.querySelector('.bb-search-input');
-    if (!input) return;
-
-    input.addEventListener('input', () => {
-      clearTimeout(this.#searchDebounce);
-      this.#searchDebounce = setTimeout(() => this.#filterCards(input.value), 200);
-    });
-  }
-
-  #filterCards(query) {
-    const q = query.trim().toLowerCase();
-    this.querySelectorAll('.bb-product-card').forEach(card => {
-      if (!q) { card.hidden = false; return; }
-      const title  = (card.dataset.title || '').toLowerCase();
-      const vendor = (card.querySelector('.bb-product-card__vendor')?.textContent || '').toLowerCase();
-      card.hidden = !title.includes(q) && !vendor.includes(q);
-    });
-  }
-
-  /* ── Hint / status messages ──────────────────────────────────────── */
-  #showHint(msg, type = '') {
-    const hint = this.querySelector('.bb-cta-hint');
-    if (!hint) return;
-    hint.textContent = msg;
-    hint.className = 'bb-cta-hint' + (type ? ` is-${type}` : '');
-
-    if (type !== 'error') {
-      setTimeout(() => {
-        hint.textContent = '';
-        hint.className = 'bb-cta-hint';
-      }, 4000);
-    }
-  }
-
-  /* ── Screen reader announcer ─────────────────────────────────────── */
-  #srAnnounce(msg) {
-    const el = document.getElementById(`bb-sr-status-${this.#sectionId}`);
-    if (!el) return;
-    el.textContent = '';
-    requestAnimationFrame(() => { el.textContent = msg; });
-  }
-
-  #announceReady() {
-    this.#srAnnounce(this.#t('builder_ready', 'Bundle builder ready. Select products to build your bundle.'));
-  }
-
-  /* ── Analytics / dataLayer ───────────────────────────────────────── */
-  #track(event, data = {}) {
-    try {
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ event, bundle_section: this.#sectionId, ...data });
-    } catch { /* silently ignore */ }
-  }
-
-  /* ── Utilities ───────────────────────────────────────────────────── */
-  #formatMoney(cents) {
-    const amount = (cents / 100).toFixed(3);
-    if (this.#currency === 'KWD') return `${amount} KD`;
-    return new Intl.NumberFormat(this.#locale, { style: 'currency', currency: this.#currency }).format(cents / 100);
-  }
-
-  #escHtml(str) {
-    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  }
-
-  // Arabic strings for dynamic (JS-generated) messages. When the storefront
-  // locale is Arabic (dir=rtl) these override the English fallbacks below.
-  #i18nAr = {
-    add: 'أضف',
-    add_more: 'أضف',
-    added_to_bundle: 'أُضيف إلى الطقم',
-    added_to_cart: 'تمت إضافة الطقم إلى السلة!',
-    builder_ready: 'أداة بناء الطقم جاهزة. اختر المنتجات لبناء طقمك.',
-    bundle_complete: 'اكتمل الطقم! جاهز للإضافة إلى السلة.',
-    bundle_full: 'اكتمل الطقم!',
-    cart_error: 'حدث خطأ ما. يرجى المحاولة مرة أخرى.',
-    complete_step: 'أكمل هذه الخطوة أولاً.',
-    decrease_qty: 'تقليل الكمية',
-    empty_state: 'طقمك فارغ. ابدأ بإضافة المنتجات!',
-    free: 'مجاناً',
-    free_gift_unlocked: 'تم فتح الهدية المجانية!',
-    increase_qty: 'زيادة الكمية',
-    of: 'من',
-    off: 'خصم',
-    quantity: 'الكمية',
-    quick_view_error: 'تعذّر تحميل تفاصيل المنتج.',
-    removed_from_bundle: 'أُزيل من الطقم',
-    required_item: 'لا يمكن إزالة عنصر إلزامي.',
-    step: 'خطوة',
-    view_full: 'عرض المنتج كامل',
-  };
-
-  #t(key, fallback) {
-    // Locale-aware: return the Arabic string in RTL locales, else the English
-    // fallback. Composed/interpolated messages are localised at the call site.
-    if (this.#dir === 'rtl' && this.#i18nAr[key] != null) {
-      return this.#i18nAr[key];
-    }
-    return fallback;
-  }
+  #announce(msg) { const sr = this.querySelector('[data-sr]'); if (sr) sr.textContent = msg; }
 }
 
-/* ── Register custom element (deferred, non-blocking) ─────────────── */
-if ('customElements' in window) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => customElements.define('bundle-builder', BundleBuilder));
-  } else {
-    customElements.define('bundle-builder', BundleBuilder);
-  }
-}
-
+if (!customElements.get('bundle-builder')) customElements.define('bundle-builder', BundleBuilder);
 })();
 </script>
 
 {% schema %}
 {
   "name": "Bundle Builder",
-  "tag": "div",
+  "tag": "section",
   "class": "section-bundle-builder",
-  "limit": 1,
   "settings": [
+    { "type": "header", "content": "Hero" },
+    { "type": "text", "id": "title", "label": "Title", "default": "Get It Your Way" },
+    { "type": "text", "id": "title_ar", "label": "Title (Arabic)", "default": "اصنعه على طريقتك" },
+    { "type": "textarea", "id": "subtitle", "label": "Subtitle", "default": "Save 15% plus get a FREE mini when you build your own bundle with 3 or more products." },
+    { "type": "textarea", "id": "subtitle_ar", "label": "Subtitle (Arabic)", "default": "وفّر 15٪ واحصل على هدية مجانية عند إنشاء طقم من 3 منتجات أو أكثر." },
 
-    {
-      "type": "header",
-      "content": "Bundle Identity"
-    },
-    {
-      "type": "text",
-      "id": "heading",
-      "label": "Heading",
-      "default": "Build Your Bundle"
-    },
-    {
-      "type": "text",
-      "id": "subheading",
-      "label": "Subheading",
-      "default": "Mix and match your favourite products and save."
-    },
+    { "type": "header", "content": "Marquee (optional)" },
+    { "type": "text", "id": "marquee_text", "label": "Marquee text", "default": "Free delivery in Kuwait on orders over 10 KWD" },
+    { "type": "text", "id": "marquee_text_ar", "label": "Marquee text (Arabic)", "default": "توصيل مجاني داخل الكويت للطلبات فوق 10 د.ك" },
 
-    {
-      "type": "header",
-      "content": "Bundle Type"
-    },
-    {
-      "type": "select",
-      "id": "bundle_type",
-      "label": "Bundle Type",
-      "info": "Controls discount logic, wizard mode, and progress behaviour.",
-      "options": [
-        { "value": "mix_match", "label": "Mix & Match — pick any items up to max" },
-        { "value": "fixed",     "label": "Fixed — pre-defined set of products" },
-        { "value": "box",       "label": "Box — fill a box with N items" },
-        { "value": "bogo",      "label": "BOGO — buy one get one" },
-        { "value": "tiered",    "label": "Tiered — discount increases with quantity" },
-        { "value": "fbt",       "label": "Frequently Bought Together" },
-        { "value": "gift_set",  "label": "Gift Set — curated gift bundle" },
-        { "value": "wizard",    "label": "Wizard — step-by-step guided flow" }
-      ],
-      "default": "mix_match"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_bundle_type_badge",
-      "label": "Show bundle type badge",
-      "default": false
-    },
-    {
-      "type": "text",
-      "id": "bundle_type_badge_label",
-      "label": "Badge label (overrides auto-generated)",
-      "placeholder": "e.g. Mix & Match"
-    },
+    { "type": "header", "content": "Bundle rules" },
+    { "type": "range", "id": "min_products", "label": "Minimum products", "min": 1, "max": 12, "step": 1, "default": 3 },
+    { "type": "range", "id": "max_products", "label": "Maximum products (rail slots)", "min": 2, "max": 12, "step": 1, "default": 6 },
+    { "type": "checkbox", "id": "redirect_to_cart", "label": "Redirect to cart after adding", "default": false },
 
-    {
-      "type": "header",
-      "content": "Quantity Rules"
-    },
-    {
-      "type": "range",
-      "id": "min_products",
-      "label": "Minimum items to complete bundle",
-      "min": 1,
-      "max": 20,
-      "step": 1,
-      "default": 3
-    },
-    {
-      "type": "range",
-      "id": "max_products",
-      "label": "Maximum items allowed in bundle",
-      "min": 1,
-      "max": 50,
-      "step": 1,
-      "default": 6
-    },
+    { "type": "header", "content": "Discount tiers (used if no Tier blocks added)" },
+    { "type": "range", "id": "tier_1_qty", "label": "Tier 1 — at quantity", "min": 0, "max": 12, "step": 1, "default": 3 },
+    { "type": "range", "id": "tier_1_discount", "label": "Tier 1 — % off", "min": 0, "max": 90, "step": 1, "default": 15 },
+    { "type": "text", "id": "tier_1_label", "label": "Tier 1 — label" },
+    { "type": "range", "id": "tier_2_qty", "label": "Tier 2 — at quantity", "min": 0, "max": 12, "step": 1, "default": 0 },
+    { "type": "range", "id": "tier_2_discount", "label": "Tier 2 — % off", "min": 0, "max": 90, "step": 1, "default": 0 },
+    { "type": "text", "id": "tier_2_label", "label": "Tier 2 — label" },
+    { "type": "range", "id": "tier_3_qty", "label": "Tier 3 — at quantity", "min": 0, "max": 12, "step": 1, "default": 0 },
+    { "type": "range", "id": "tier_3_discount", "label": "Tier 3 — % off", "min": 0, "max": 90, "step": 1, "default": 0 },
+    { "type": "text", "id": "tier_3_label", "label": "Tier 3 — label" },
 
-    {
-      "type": "header",
-      "content": "Tiered Discounts"
-    },
-    {
-      "type": "paragraph",
-      "content": "Define up to 5 quantity-based tiers. Leave Qty at 0 to disable a tier."
-    },
+    { "type": "header", "content": "Free mini gift" },
+    { "type": "checkbox", "id": "enable_free_gift", "label": "Enable free gift", "default": false },
+    { "type": "product", "id": "free_gift_product", "label": "Free gift product" },
+    { "type": "range", "id": "free_gift_threshold", "label": "Unlock at quantity", "min": 1, "max": 12, "step": 1, "default": 3 },
 
-    {
-      "type": "range",
-      "id": "tier_1_qty",
-      "label": "Tier 1 — minimum quantity",
-      "min": 0,
-      "max": 20,
-      "step": 1,
-      "default": 3
-    },
-    {
-      "type": "range",
-      "id": "tier_1_discount",
-      "label": "Tier 1 — discount %",
-      "min": 0,
-      "max": 80,
-      "step": 1,
-      "unit": "%",
-      "default": 10
-    },
-    {
-      "type": "text",
-      "id": "tier_1_label",
-      "label": "Tier 1 — badge label",
-      "default": "10% off"
-    },
+    { "type": "header", "content": "Colors" },
+    { "type": "color", "id": "color_bg", "label": "Background", "default": "#f1f0ec" },
+    { "type": "color", "id": "color_text", "label": "Text", "default": "#141414" },
+    { "type": "color", "id": "color_muted", "label": "Muted text", "default": "#6f6c66" },
+    { "type": "color", "id": "color_card_bg", "label": "Card background", "default": "#ffffff" },
+    { "type": "color", "id": "color_rail_bg", "label": "Bundle rail background", "default": "#e7dbd1" },
+    { "type": "color", "id": "color_accent", "label": "Accent / buttons", "default": "#141414" },
 
-    {
-      "type": "range",
-      "id": "tier_2_qty",
-      "label": "Tier 2 — minimum quantity",
-      "min": 0,
-      "max": 20,
-      "step": 1,
-      "default": 5
-    },
-    {
-      "type": "range",
-      "id": "tier_2_discount",
-      "label": "Tier 2 — discount %",
-      "min": 0,
-      "max": 80,
-      "step": 1,
-      "unit": "%",
-      "default": 20
-    },
-    {
-      "type": "text",
-      "id": "tier_2_label",
-      "label": "Tier 2 — badge label",
-      "default": "20% off"
-    },
-
-    {
-      "type": "range",
-      "id": "tier_3_qty",
-      "label": "Tier 3 — minimum quantity",
-      "min": 0,
-      "max": 20,
-      "step": 1,
-      "default": 0
-    },
-    {
-      "type": "range",
-      "id": "tier_3_discount",
-      "label": "Tier 3 — discount %",
-      "min": 0,
-      "max": 80,
-      "step": 1,
-      "unit": "%",
-      "default": 30
-    },
-    {
-      "type": "text",
-      "id": "tier_3_label",
-      "label": "Tier 3 — badge label",
-      "default": "30% off"
-    },
-
-    {
-      "type": "range",
-      "id": "tier_4_qty",
-      "label": "Tier 4 — minimum quantity",
-      "min": 0,
-      "max": 20,
-      "step": 1,
-      "default": 0
-    },
-    {
-      "type": "range",
-      "id": "tier_4_discount",
-      "label": "Tier 4 — discount %",
-      "min": 0,
-      "max": 80,
-      "step": 1,
-      "unit": "%",
-      "default": 40
-    },
-    {
-      "type": "text",
-      "id": "tier_4_label",
-      "label": "Tier 4 — badge label",
-      "default": "40% off"
-    },
-
-    {
-      "type": "range",
-      "id": "tier_5_qty",
-      "label": "Tier 5 — minimum quantity",
-      "min": 0,
-      "max": 20,
-      "step": 1,
-      "default": 0
-    },
-    {
-      "type": "range",
-      "id": "tier_5_discount",
-      "label": "Tier 5 — discount %",
-      "min": 0,
-      "max": 80,
-      "step": 1,
-      "unit": "%",
-      "default": 50
-    },
-    {
-      "type": "text",
-      "id": "tier_5_label",
-      "label": "Tier 5 — badge label",
-      "default": "50% off"
-    },
-
-    {
-      "type": "header",
-      "content": "Free Gift"
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_free_gift",
-      "label": "Enable free gift at threshold",
-      "default": false
-    },
-    {
-      "type": "range",
-      "id": "free_gift_threshold",
-      "label": "Free gift unlocks when customer selects N items",
-      "min": 1,
-      "max": 20,
-      "step": 1,
-      "default": 5
-    },
-    {
-      "type": "product",
-      "id": "free_gift_product",
-      "label": "Free gift product"
-    },
-
-    {
-      "type": "header",
-      "content": "Product Filtering"
-    },
-    {
-      "type": "text",
-      "id": "filter_by_tag",
-      "label": "Show only products with these tags (comma-separated)",
-      "info": "Applied globally across all collection blocks. Individual blocks can override.",
-      "placeholder": "sale, bundle-eligible, new"
-    },
-    {
-      "type": "text",
-      "id": "filter_by_vendor",
-      "label": "Show only products from these vendors (comma-separated)",
-      "placeholder": "Al Moallem, Brand X"
-    },
-
-    {
-      "type": "header",
-      "content": "Wizard Mode"
-    },
-    {
-      "type": "select",
-      "id": "wizard_step_animation",
-      "label": "Step transition animation",
-      "options": [
-        { "value": "slide", "label": "Slide in from side" },
-        { "value": "fade",  "label": "Fade" },
-        { "value": "scale", "label": "Scale up" }
-      ],
-      "default": "slide"
-    },
-
-    {
-      "type": "header",
-      "content": "Metaobject Config"
-    },
-    {
-      "type": "text",
-      "id": "metaobject_id",
-      "label": "Bundle Config metaobject ID",
-      "info": "Enter the GID (gid://shopify/Metaobject/…) to pull bundle_config overrides from a metaobject. Leave blank to use section settings.",
-      "placeholder": "gid://shopify/Metaobject/123456789"
-    },
-
-    {
-      "type": "header",
-      "content": "Countdown Timer"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_timer",
-      "label": "Show countdown timer",
-      "default": false
-    },
-    {
-      "type": "text",
-      "id": "timer_end_date",
-      "label": "Timer end date/time (ISO 8601 UTC)",
-      "info": "Example: 2025-12-31T23:59:59Z",
-      "placeholder": "2025-12-31T23:59:59Z"
-    },
-
-    {
-      "type": "header",
-      "content": "Display Options"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_progress_bar",
-      "label": "Show progress bar",
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_search",
-      "label": "Enable product search",
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "show_savings",
-      "label": "Show savings amount in summary",
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "redirect_to_cart",
-      "label": "Redirect to cart page after adding bundle",
-      "default": false
-    },
-
-    {
-      "type": "header",
-      "content": "Layout"
-    },
-    {
-      "type": "range",
-      "id": "desktop_columns",
-      "label": "Product columns — desktop",
-      "min": 2,
-      "max": 5,
-      "step": 1,
-      "default": 3
-    },
-    {
-      "type": "range",
-      "id": "mobile_columns",
-      "label": "Product columns — mobile",
-      "min": 1,
-      "max": 3,
-      "step": 1,
-      "default": 2
-    },
-
-    {
-      "type": "header",
-      "content": "Colors"
-    },
-    {
-      "type": "color",
-      "id": "color_primary",
-      "label": "Primary color",
-      "default": "#1a1a2e"
-    },
-    {
-      "type": "color",
-      "id": "color_accent",
-      "label": "Accent / gold color",
-      "default": "#c8a96e"
-    },
-    {
-      "type": "color",
-      "id": "color_bg",
-      "label": "Section background",
-      "default": "#f9f7f4"
-    },
-    {
-      "type": "color",
-      "id": "color_card_bg",
-      "label": "Product card background",
-      "default": "#ffffff"
-    },
-    {
-      "type": "color",
-      "id": "color_card_border",
-      "label": "Card border",
-      "default": "#e8e3dc"
-    },
-    {
-      "type": "color",
-      "id": "color_card_hover_border",
-      "label": "Card hover border",
-      "default": "#c8a96e"
-    },
-    {
-      "type": "color",
-      "id": "color_text",
-      "label": "Text color",
-      "default": "#1a1a2e"
-    },
-    {
-      "type": "color",
-      "id": "color_text_muted",
-      "label": "Muted text color",
-      "default": "#6b6b7b"
-    },
-    {
-      "type": "color",
-      "id": "color_progress_bg",
-      "label": "Progress bar track color",
-      "default": "#e8e3dc"
-    },
-    {
-      "type": "color",
-      "id": "color_tier_1",
-      "label": "Tier 1 badge color",
-      "default": "#2ecc71"
-    },
-    {
-      "type": "color",
-      "id": "color_tier_2",
-      "label": "Tier 2 badge color",
-      "default": "#3498db"
-    },
-    {
-      "type": "color",
-      "id": "color_free_gift",
-      "label": "Free gift highlight color",
-      "default": "#e74c3c"
-    },
-
-    {
-      "type": "header",
-      "content": "Shape"
-    },
-    {
-      "type": "range",
-      "id": "card_border_radius",
-      "label": "Card corner radius (px)",
-      "min": 0,
-      "max": 32,
-      "step": 2,
-      "default": 12
-    },
-    {
-      "type": "range",
-      "id": "button_border_radius",
-      "label": "Button corner radius (px)",
-      "min": 0,
-      "max": 32,
-      "step": 2,
-      "default": 8
-    }
-
+    { "type": "header", "content": "Style" },
+    { "type": "range", "id": "card_radius", "label": "Card corner radius", "min": 0, "max": 32, "step": 1, "unit": "px", "default": 14 },
+    { "type": "range", "id": "section_padding_top", "label": "Padding top", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 },
+    { "type": "range", "id": "section_padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 }
   ],
-
   "blocks": [
     {
       "type": "collection",
-      "name": "Collection Tab",
+      "name": "Category",
       "settings": [
-        {
-          "type": "collection",
-          "id": "collection",
-          "label": "Collection"
-        },
-        {
-          "type": "text",
-          "id": "collection_tab_label",
-          "label": "Tab / step label",
-          "info": "Overrides the collection title in tabs and wizard step buttons."
-        },
-        {
-          "type": "text",
-          "id": "tab_icon",
-          "label": "Tab icon (emoji or SVG text)",
-          "placeholder": "🛋️"
-        },
-        {
-          "type": "text",
-          "id": "step_description",
-          "label": "Step description (wizard mode only)",
-          "info": "Shown beneath the step title to guide customers."
-        },
-        {
-          "type": "range",
-          "id": "product_limit",
-          "label": "Maximum products to display",
-          "min": 4,
-          "max": 100,
-          "step": 2,
-          "default": 50
-        },
-        {
-          "type": "range",
-          "id": "step_min_qty",
-          "label": "Minimum items to select in this step (wizard mode)",
-          "min": 0,
-          "max": 10,
-          "step": 1,
-          "default": 1
-        },
-        {
-          "type": "range",
-          "id": "step_max_qty",
-          "label": "Maximum items to select in this step (wizard mode, 0 = use global max)",
-          "min": 0,
-          "max": 20,
-          "step": 1,
-          "default": 0
-        },
-        {
-          "type": "text",
-          "id": "allow_tag_filter",
-          "label": "Filter products by tag (comma-separated, overrides global)",
-          "placeholder": "new, featured"
-        },
-        {
-          "type": "text",
-          "id": "allow_vendor_filter",
-          "label": "Filter products by vendor (comma-separated, overrides global)",
-          "placeholder": "Al Moallem"
-        },
-        {
-          "type": "range",
-          "id": "desktop_columns",
-          "label": "Desktop columns (overrides global)",
-          "min": 0,
-          "max": 5,
-          "step": 1,
-          "default": 0,
-          "info": "Set to 0 to use the global section setting."
-        },
-        {
-          "type": "range",
-          "id": "mobile_columns",
-          "label": "Mobile columns (overrides global)",
-          "min": 0,
-          "max": 3,
-          "step": 1,
-          "default": 0,
-          "info": "Set to 0 to use the global section setting."
-        },
-        {
-          "type": "checkbox",
-          "id": "show_collection_image",
-          "label": "Show collection hero image above grid",
-          "default": false
-        }
+        { "type": "collection", "id": "collection", "label": "Collection" },
+        { "type": "text", "id": "collection_tab_label", "label": "Section heading", "info": "Big uppercase heading, e.g. START WITH SHAMPOO" },
+        { "type": "textarea", "id": "step_description", "label": "Section description" },
+        { "type": "range", "id": "product_limit", "label": "Products to show", "min": 2, "max": 50, "step": 1, "default": 24 },
+        { "type": "checkbox", "id": "show_collection_image", "label": "(reserved)", "default": false },
+        { "type": "range", "id": "step_min_qty", "label": "(reserved) min from this category", "min": 0, "max": 12, "step": 1, "default": 0 },
+        { "type": "range", "id": "step_max_qty", "label": "(reserved) max from this category", "min": 0, "max": 12, "step": 1, "default": 0 }
       ]
     },
     {
-      "type": "required_product",
-      "name": "Required Product",
+      "type": "tier_discount",
+      "name": "Discount Tier",
       "settings": [
-        {
-          "type": "product",
-          "id": "product",
-          "label": "Required product"
-        },
-        {
-          "type": "range",
-          "id": "step_ref",
-          "label": "Associate with wizard step number",
-          "min": 1,
-          "max": 10,
-          "step": 1,
-          "default": 1,
-          "info": "Match this to the position of the collection tab block this product belongs to."
-        }
+        { "type": "range", "id": "min_qty", "label": "At quantity", "min": 1, "max": 12, "step": 1, "default": 3 },
+        { "type": "range", "id": "discount", "label": "% off", "min": 0, "max": 90, "step": 1, "default": 15 },
+        { "type": "text", "id": "label", "label": "Label" },
+        { "type": "text", "id": "label_ar", "label": "Label (Arabic)" }
       ]
     }
   ],
-
   "presets": [
     {
-      "name": "Mix & Match Bundle",
-      "settings": {
-        "bundle_type": "mix_match",
-        "heading": "Build Your Bundle",
-        "subheading": "Mix and match your favourite products and save.",
-        "min_products": 3,
-        "max_products": 6,
-        "tier_1_qty": 3,
-        "tier_1_discount": 10,
-        "tier_1_label": "10% off",
-        "tier_2_qty": 5,
-        "tier_2_discount": 20,
-        "tier_2_label": "20% off",
-        "show_progress_bar": true,
-        "enable_search": true,
-        "show_savings": true
-      },
+      "name": "Bundle Builder",
       "blocks": [
-        { "type": "collection" }
-      ]
-    },
-    {
-      "name": "Bundle Builder — Wizard",
-      "settings": {
-        "bundle_type": "wizard",
-        "heading": "Build Your Perfect Set",
-        "subheading": "Follow the steps to build your custom bundle.",
-        "min_products": 3,
-        "max_products": 9,
-        "wizard_step_animation": "slide",
-        "show_progress_bar": true
-      },
-      "blocks": [
-        { "type": "collection", "settings": { "collection_tab_label": "Step 1: Choose Base", "step_min_qty": 1 } },
-        { "type": "collection", "settings": { "collection_tab_label": "Step 2: Add Extras", "step_min_qty": 1 } },
-        { "type": "collection", "settings": { "collection_tab_label": "Step 3: Finishing Touches", "step_min_qty": 1 } }
-      ]
-    },
-    {
-      "name": "Tiered Discount Bundle",
-      "settings": {
-        "bundle_type": "tiered",
-        "heading": "Buy More, Save More",
-        "subheading": "The more you add, the bigger your discount.",
-        "min_products": 1,
-        "max_products": 10,
-        "tier_1_qty": 3,
-        "tier_1_discount": 10,
-        "tier_1_label": "10% off",
-        "tier_2_qty": 5,
-        "tier_2_discount": 20,
-        "tier_2_label": "20% off",
-        "tier_3_qty": 8,
-        "tier_3_discount": 30,
-        "tier_3_label": "30% off",
-        "show_progress_bar": true,
-        "show_savings": true,
-        "show_bundle_type_badge": true,
-        "bundle_type_badge_label": "Volume Discount"
-      },
-      "blocks": [
+        { "type": "collection" },
+        { "type": "collection" },
         { "type": "collection" }
       ]
     }
