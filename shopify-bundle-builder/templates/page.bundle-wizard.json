@@ -9,57 +9,51 @@
       "settings": {
         "title": "Build Your Eid Gift Box",
         "title_ar": "جهّز صندوق هدايا العيد",
-        "subtitle": "Three easy steps — pick nuts, chocolate, then sweets",
-        "subtitle_ar": "ثلاث خطوات سهلة — اختر المكسرات ثم الشوكولاتة ثم الحلويات",
-        "bundle_type": "wizard",
-        "wizard_step_animation": "slide",
+        "subtitle": "Save 15% plus get a FREE mini when you fill your gift box with 3 or more treats.",
+        "subtitle_ar": "وفّر 15٪ واحصل على هدية مجانية عند تعبئة صندوقك بـ 3 منتجات أو أكثر.",
+        "marquee_text": "Eid gifting — free delivery in Kuwait on orders over 10 KWD",
+        "marquee_text_ar": "هدايا العيد — توصيل مجاني داخل الكويت للطلبات فوق 10 د.ك",
         "min_products": 3,
         "max_products": 9,
-        "discount_type": "tiered",
-        "show_progress_bar": true,
-        "show_savings": true,
-        "enable_search": true,
-        "desktop_columns": 3,
-        "mobile_columns": 2,
+        "tier_1_qty": 3,
+        "tier_1_discount": 15,
+        "tier_2_qty": 6,
+        "tier_2_discount": 20,
+        "tier_3_qty": 9,
+        "tier_3_discount": 25,
+        "image_fit": "contain",
+        "show_value_props": true,
         "color_accent": "#c0392b",
-        "section_padding_top": 30,
-        "section_padding_bottom": 60
+        "color_rail_bg": "#f0dcd6",
+        "section_padding_top": 24,
+        "section_padding_bottom": 80
       },
       "blocks": {
         "step_nuts": {
           "type": "collection",
           "settings": {
             "collection": "مكسرات",
-            "collection_tab_label": "1. Nuts",
-            "step_description": "Choose at least 1 type of nuts",
-            "product_limit": 12,
-            "step_min_qty": 1,
-            "step_max_qty": 4,
-            "show_collection_image": true
+            "collection_tab_label": "Start With Nuts",
+            "step_description": "Choose your favourite premium nuts.",
+            "product_limit": 12
           }
         },
         "step_choc": {
           "type": "collection",
           "settings": {
             "collection": "شوكولاتة-بلجيكية-فاخرة",
-            "collection_tab_label": "2. Chocolate",
-            "step_description": "Add 1 or more Belgian chocolates",
-            "product_limit": 12,
-            "step_min_qty": 1,
-            "step_max_qty": 3,
-            "show_collection_image": true
+            "collection_tab_label": "Add Belgian Chocolate",
+            "step_description": "Add one or more luxury Belgian chocolates.",
+            "product_limit": 12
           }
         },
         "step_sweets": {
           "type": "collection",
           "settings": {
             "collection": "حلويات-العيد",
-            "collection_tab_label": "3. Sweets",
-            "step_description": "Finish with Eid sweets",
-            "product_limit": 12,
-            "step_min_qty": 1,
-            "step_max_qty": 4,
-            "show_collection_image": true
+            "collection_tab_label": "Finish With Eid Sweets",
+            "step_description": "Complete the box with traditional Eid sweets.",
+            "product_limit": 12
           }
         }
       },

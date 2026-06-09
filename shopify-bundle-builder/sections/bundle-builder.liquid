@@ -36,6 +36,12 @@
   if locale_is_ar and bb.subtitle_ar != blank
     assign subheading = bb.subtitle_ar
   endif
+
+  assign img_fit = bb.image_fit | default: 'contain'
+  assign img_pad = 0
+  if img_fit == 'contain'
+    assign img_pad = 10
+  endif
 -%}
 
 {%- comment -%} ── Tiers JSON (tier_discount blocks override section settings) ── {%- endcomment -%}
@@ -82,7 +88,7 @@
   class="byob"
   dir="{{ locale_dir }}"
   data-section-id="{{ sid }}"
-  style="--byob-pt:{{ bb.section_padding_top | default: 24 }}px;--byob-pb:{{ bb.section_padding_bottom | default: 64 }}px;"
+  style="--byob-pt:{{ bb.section_padding_top | default: 24 }}px;--byob-pb:{{ bb.section_padding_bottom | default: 64 }}px;--byob-img-fit:{{ img_fit }};--byob-img-pad:{{ img_pad }}%;"
   aria-label="{%- if locale_is_ar -%}أنشئ طقمك{%- else -%}Build your own bundle{%- endif -%}"
 >
 
@@ -124,6 +130,23 @@
         {%- endif -%}
       </p>
     </header>
+
+    {%- comment -%} ── Value props row ── {%- endcomment -%}
+    {%- if bb.show_value_props -%}
+      {%- assign vp1 = bb.vp_1 -%}{%- assign vp2 = bb.vp_2 -%}{%- assign vp3 = bb.vp_3 -%}
+      {%- if locale_is_ar -%}
+        {%- if bb.vp_1_ar != blank -%}{%- assign vp1 = bb.vp_1_ar -%}{%- endif -%}
+        {%- if bb.vp_2_ar != blank -%}{%- assign vp2 = bb.vp_2_ar -%}{%- endif -%}
+        {%- if bb.vp_3_ar != blank -%}{%- assign vp3 = bb.vp_3_ar -%}{%- endif -%}
+      {%- endif -%}
+      {%- if vp1 != blank or vp2 != blank or vp3 != blank -%}
+      <ul class="byob-vprops">
+        {%- if vp1 != blank -%}<li class="byob-vprops__item">{{ vp1 }}</li>{%- endif -%}
+        {%- if vp2 != blank -%}<li class="byob-vprops__item">{{ vp2 }}</li>{%- endif -%}
+        {%- if vp3 != blank -%}<li class="byob-vprops__item">{{ vp3 }}</li>{%- endif -%}
+      </ul>
+      {%- endif -%}
+    {%- endif -%}
 
     <div class="byob-grid-wrap">
 
@@ -390,6 +413,25 @@
   color: var(--byob-muted);
 }
 
+/* ── Value props row ───────────────────────────────────────────────────── */
+.byob-vprops {
+  list-style: none;
+  margin: 0 auto clamp(2rem, 6cqi, 4rem);
+  padding: 0 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem 2.5rem;
+  max-width: 1000px;
+}
+.byob-vprops__item {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--byob-ink);
+}
+
 /* ── Layout: main + rail ───────────────────────────────────────────────── */
 .byob-grid-wrap {
   display: grid;
@@ -457,9 +499,19 @@
 }
 .byob-card__img {
   width: 100%; height: 100%;
-  object-fit: cover; display: block;
+  object-fit: var(--byob-img-fit, cover); display: block;
+  padding: var(--byob-img-pad, 0);
   transition: transform .5s ease;
 }
+
+/* OUAI-style rotating pastel panels — each product floats on its own tint */
+.byob-cards > .byob-card:nth-child(7n+1) .byob-card__media { background: #f3ecdf; }
+.byob-cards > .byob-card:nth-child(7n+2) .byob-card__media { background: #f1e2de; }
+.byob-cards > .byob-card:nth-child(7n+3) .byob-card__media { background: #e3eae1; }
+.byob-cards > .byob-card:nth-child(7n+4) .byob-card__media { background: #f6e7d8; }
+.byob-cards > .byob-card:nth-child(7n+5) .byob-card__media { background: #ece4ef; }
+.byob-cards > .byob-card:nth-child(7n+6) .byob-card__media { background: #e0e8ee; }
+.byob-cards > .byob-card:nth-child(7n+7) .byob-card__media { background: #efe9e0; }
 .byob-card:hover .byob-card__img { transform: scale(1.03); }
 .byob-card__noimg {
   width: 100%; height: 100%;
@@ -1120,9 +1172,19 @@ if (!customElements.get('bundle-builder')) customElements.define('bundle-builder
     { "type": "color", "id": "color_accent", "label": "Accent / buttons", "default": "#141414" },
 
     { "type": "header", "content": "Style" },
+    { "type": "select", "id": "image_fit", "label": "Product image fit", "options": [ { "value": "contain", "label": "Contain (OUAI look — product on tinted panel)" }, { "value": "cover", "label": "Cover (fill the panel)" } ], "default": "contain" },
     { "type": "range", "id": "card_radius", "label": "Card corner radius", "min": 0, "max": 32, "step": 1, "unit": "px", "default": 14 },
     { "type": "range", "id": "section_padding_top", "label": "Padding top", "min": 0, "max": 120, "step": 4, "unit": "px", "default": 24 },
-    { "type": "range", "id": "section_padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 }
+    { "type": "range", "id": "section_padding_bottom", "label": "Padding bottom", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 64 },
+
+    { "type": "header", "content": "Value props row (optional)" },
+    { "type": "checkbox", "id": "show_value_props", "label": "Show value props row", "default": true },
+    { "type": "text", "id": "vp_1", "label": "Prop 1", "default": "🎁 Free mini at 3+ items" },
+    { "type": "text", "id": "vp_1_ar", "label": "Prop 1 (Arabic)", "default": "🎁 هدية مجانية عند 3 منتجات" },
+    { "type": "text", "id": "vp_2", "label": "Prop 2", "default": "🚚 Free delivery in Kuwait" },
+    { "type": "text", "id": "vp_2_ar", "label": "Prop 2 (Arabic)", "default": "🚚 توصيل مجاني داخل الكويت" },
+    { "type": "text", "id": "vp_3", "label": "Prop 3", "default": "🔒 Secure checkout" },
+    { "type": "text", "id": "vp_3_ar", "label": "Prop 3 (Arabic)", "default": "🔒 دفع آمن" }
   ],
   "blocks": [
     {

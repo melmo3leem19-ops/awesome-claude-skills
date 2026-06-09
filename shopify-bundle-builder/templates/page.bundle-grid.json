@@ -8,52 +8,55 @@
       "type": "bundle-builder",
       "settings": {
         "title": "Build Your Own Box",
-        "title_ar": "ابنِ صندوقك بنفسك",
-        "subtitle": "Mix any items across tabs — the more you add, the more you save",
-        "subtitle_ar": "امزج أي منتجات عبر التبويبات — كلما أضفت أكثر وفّرت أكثر",
-        "bundle_type": "mix_match",
+        "title_ar": "اصنع صندوقك بنفسك",
+        "subtitle": "Save 15% plus get a FREE mini when you build your own box with 3 or more products.",
+        "subtitle_ar": "وفّر 15٪ واحصل على هدية مجانية عند إنشاء صندوق من 3 منتجات أو أكثر.",
+        "marquee_text": "Free delivery in Kuwait on orders over 10 KWD",
+        "marquee_text_ar": "توصيل مجاني داخل الكويت للطلبات فوق 10 د.ك",
         "min_products": 3,
         "max_products": 9,
-        "discount_type": "tiered",
-        "show_progress_bar": true,
-        "show_savings": true,
-        "enable_search": true,
-        "desktop_columns": 3,
-        "mobile_columns": 2,
-        "color_accent": "#c0392b",
-        "section_padding_top": 30,
-        "section_padding_bottom": 60
+        "tier_1_qty": 3,
+        "tier_1_discount": 15,
+        "tier_2_qty": 6,
+        "tier_2_discount": 20,
+        "tier_3_qty": 9,
+        "tier_3_discount": 25,
+        "image_fit": "contain",
+        "show_value_props": true,
+        "color_accent": "#1a1a1a",
+        "section_padding_top": 24,
+        "section_padding_bottom": 80
       },
       "blocks": {
-        "tab_nuts": {
+        "cat_nuts": {
           "type": "collection",
           "settings": {
             "collection": "مكسرات",
-            "collection_tab_label": "Nuts",
-            "product_limit": 12,
-            "show_collection_image": false
+            "collection_tab_label": "Start With Nuts",
+            "step_description": "Premium roasted nuts — pick your favourites.",
+            "product_limit": 12
           }
         },
-        "tab_choc": {
+        "cat_choc": {
           "type": "collection",
           "settings": {
             "collection": "شوكولاتة-بلجيكية-فاخرة",
-            "collection_tab_label": "Chocolate",
-            "product_limit": 12,
-            "show_collection_image": false
+            "collection_tab_label": "Add Some Chocolate",
+            "step_description": "Finest Belgian chocolate to sweeten the box.",
+            "product_limit": 12
           }
         },
-        "tab_sweets": {
+        "cat_sweets": {
           "type": "collection",
           "settings": {
             "collection": "حلويات-العيد",
-            "collection_tab_label": "Sweets",
-            "product_limit": 12,
-            "show_collection_image": false
+            "collection_tab_label": "Finish With Sweets",
+            "step_description": "Traditional Eid sweets to complete your bundle.",
+            "product_limit": 12
           }
         }
       },
-      "block_order": ["tab_nuts", "tab_choc", "tab_sweets"]
+      "block_order": ["cat_nuts", "cat_choc", "cat_sweets"]
     }
   },
   "order": ["main", "bundle_grid"]
