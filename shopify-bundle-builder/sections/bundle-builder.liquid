@@ -310,11 +310,15 @@
         {%- if how_title != blank -%}<h2 class="byob-how__title">{{ how_title }}</h2>{%- endif -%}
         <ol class="byob-how__steps">
           {%- for n in (1..3) -%}
-            {%- assign st = bb['how_' | append: n | append: '_title'] -%}
-            {%- assign sx = bb['how_' | append: n | append: '_text'] -%}
+            {%- assign k_title = 'how_' | append: n | append: '_title' -%}
+            {%- assign k_text  = 'how_' | append: n | append: '_text' -%}
+            {%- assign st = bb[k_title] -%}
+            {%- assign sx = bb[k_text] -%}
             {%- if locale_is_ar -%}
-              {%- assign st_ar = bb['how_' | append: n | append: '_title_ar'] -%}
-              {%- assign sx_ar = bb['how_' | append: n | append: '_text_ar'] -%}
+              {%- assign k_title_ar = k_title | append: '_ar' -%}
+              {%- assign k_text_ar  = k_text  | append: '_ar' -%}
+              {%- assign st_ar = bb[k_title_ar] -%}
+              {%- assign sx_ar = bb[k_text_ar] -%}
               {%- if st_ar != blank -%}{%- assign st = st_ar -%}{%- endif -%}
               {%- if sx_ar != blank -%}{%- assign sx = sx_ar -%}{%- endif -%}
             {%- endif -%}
