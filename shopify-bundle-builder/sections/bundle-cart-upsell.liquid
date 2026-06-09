@@ -1,0 +1,982 @@
+{% comment %}
+  Bundle Cart Upsell
+  Al Moallem Mill | Kuwait | KWD | Arabic + English | RTL
+  =========================================================
+  Placement : cart page or cart drawer (add to layout)
+  Behaviour : appears when trigger product(s) are in cart,
+              shows curated upsell products, quick-add each,
+              live bundle savings display, dismissible per session,
+              collapsible on mobile.
+{% endcomment %}
+
+{%- liquid
+  assign t_title          = section.settings.title    | default: 'Complete Your Bundle'
+  assign t_title_ar       = 'أكمل طلبك'
+  assign t_subtitle       = section.settings.subtitle | default: 'Add these products to unlock bundle savings'
+  assign t_subtitle_ar    = 'أضف هذه المنتجات للاستفادة من خصم الطلب المتكامل'
+  assign t_quick_add      = 'Quick add'
+  assign t_quick_add_ar   = 'إضافة سريعة'
+  assign t_added          = 'Added'
+  assign t_added_ar       = 'تمت الإضافة'
+  assign t_bundle_savings = 'Bundle savings'
+  assign t_savings_ar     = 'توفير الطلب المتكامل'
+  assign t_dismiss        = 'Dismiss'
+  assign t_dismiss_ar     = 'إخفاء'
+  assign t_collapse       = 'Show less'
+  assign t_collapse_ar    = 'إخفاء'
+  assign t_expand         = 'Complete your bundle'
+  assign t_expand_ar      = 'أكمل طلبك'
+  assign t_unavailable    = 'Unavailable'
+  assign t_unavailable_ar = 'غير متوفر'
+  assign locale_is_ar = false
+  if request.locale.iso_code == 'ar'
+    assign locale_is_ar = true
+  endif
+
+  assign max_show = section.settings.max_show | default: 4
+-%}
+
+{%- comment %} ── Build comma-separated trigger product IDs for JS ── {% endcomment -%}
+{%- assign trigger_ids  = '' -%}
+{%- assign upsell_ids   = '' -%}
+{%- for block in section.blocks -%}
+  {%- if block.type == 'trigger_product' and block.settings.product != blank -%}
+    {%- assign trigger_ids = trigger_ids | append: block.settings.product.id | append: ',' -%}
+  {%- endif -%}
+  {%- if block.type == 'upsell_product' and block.settings.product != blank -%}
+    {%- assign upsell_ids = upsell_ids | append: block.settings.product.id | append: ',' -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- style -%}
+/* ── Tokens ──────────────────────────────────────────────────── */
+#shopify-section-{{ section.id }} {
+  --cbu-bg        : {{ section.settings.color_background }};
+  --cbu-border    : {{ section.settings.color_border }};
+  --cbu-accent    : {{ section.settings.color_accent }};
+  --cbu-text      : #1a1a1a;
+  --cbu-text-muted: #6b7280;
+  --cbu-success   : #16a34a;
+  --cbu-radius    : 12px;
+  --cbu-gap       : 12px;
+  --cbu-transition: 0.2s ease;
+  display         : block;
+  padding-block   : {{ section.settings.padding_top }}px {{ section.settings.padding_bottom }}px;
+}
+
+/* ── Wrapper ─────────────────────────────────────────────────── */
+.cbu-wrapper {
+  padding-inline: 16px;
+}
+
+/* ── Web component hidden by default; JS shows it ────────────── */
+cart-bundle-upsell {
+  display: none;
+}
+cart-bundle-upsell[data-visible] {
+  display: block;
+}
+
+/* ── Main card ───────────────────────────────────────────────── */
+.cbu-card {
+  background   : var(--cbu-bg);
+  border       : 2px solid var(--cbu-accent);
+  border-radius: var(--cbu-radius);
+  overflow     : hidden;
+  transition   : box-shadow var(--cbu-transition);
+}
+.cbu-card:focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--cbu-accent) 30%, transparent);
+}
+
+/* ── Card header ─────────────────────────────────────────────── */
+.cbu-header {
+  display        : flex;
+  align-items    : center;
+  justify-content: space-between;
+  gap            : 12px;
+  padding        : 16px 20px;
+  background     : color-mix(in srgb, var(--cbu-accent) 8%, transparent);
+  border-block-end: 1px solid color-mix(in srgb, var(--cbu-accent) 20%, transparent);
+  cursor         : pointer;
+  user-select    : none;
+}
+.cbu-header__left {
+  display    : flex;
+  align-items: center;
+  gap        : 10px;
+}
+.cbu-header__icon {
+  width : 22px;
+  height: 22px;
+  color : var(--cbu-accent);
+  flex-shrink: 0;
+}
+.cbu-header__titles {
+  display       : flex;
+  flex-direction: column;
+  gap           : 2px;
+}
+.cbu-header__title {
+  font-size  : 1rem;
+  font-weight: 700;
+  color      : var(--cbu-text);
+  margin     : 0;
+}
+.cbu-header__subtitle {
+  font-size: 0.8rem;
+  color    : var(--cbu-text-muted);
+  margin   : 0;
+}
+.cbu-header__actions {
+  display    : flex;
+  align-items: center;
+  gap        : 8px;
+  flex-shrink: 0;
+}
+.cbu-toggle-btn,
+.cbu-dismiss-btn {
+  display    : inline-flex;
+  align-items: center;
+  justify-content: center;
+  background : transparent;
+  border     : none;
+  cursor     : pointer;
+  padding    : 6px;
+  border-radius: 6px;
+  transition : background var(--cbu-transition);
+  color      : var(--cbu-text-muted);
+}
+.cbu-toggle-btn:hover,
+.cbu-dismiss-btn:hover {
+  background: rgba(0,0,0,0.06);
+  color     : var(--cbu-text);
+}
+.cbu-toggle-btn svg,
+.cbu-dismiss-btn svg {
+  width : 18px;
+  height: 18px;
+  transition: transform var(--cbu-transition);
+}
+.cbu-card--collapsed .cbu-toggle-btn svg {
+  transform: rotate(-90deg);
+}
+
+/* ── Card body ───────────────────────────────────────────────── */
+.cbu-body {
+  padding    : 20px;
+  display    : grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap        : var(--cbu-gap);
+  overflow   : hidden;
+  transition : max-height 0.35s ease, padding 0.35s ease, opacity 0.25s ease;
+  max-height : 2000px; /* open */
+  opacity    : 1;
+}
+.cbu-card--collapsed .cbu-body {
+  max-height : 0;
+  padding-block: 0;
+  opacity    : 0;
+  pointer-events: none;
+}
+
+/* ── Product card ────────────────────────────────────────────── */
+.cbu-product {
+  display       : flex;
+  flex-direction: column;
+  gap           : 8px;
+  position      : relative;
+}
+.cbu-product__badge {
+  position      : absolute;
+  inset-block-start: 8px;
+  inset-inline-start: 8px;
+  background    : var(--cbu-accent);
+  color         : #fff;
+  font-size     : 0.65rem;
+  font-weight   : 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding       : 2px 6px;
+  border-radius : 4px;
+  z-index       : 1;
+  pointer-events: none;
+}
+.cbu-product__img-wrap {
+  position     : relative;
+  border-radius: 8px;
+  overflow     : hidden;
+  aspect-ratio : 1;
+  background   : #f9fafb;
+  border       : 1px solid var(--cbu-border);
+}
+.cbu-product__img {
+  width     : 100%;
+  height    : 100%;
+  object-fit: cover;
+  display   : block;
+  transition: transform var(--cbu-transition);
+}
+.cbu-product__img-wrap:hover .cbu-product__img {
+  transform: scale(1.04);
+}
+.cbu-product__info {
+  display       : flex;
+  flex-direction: column;
+  gap           : 4px;
+  flex          : 1;
+}
+.cbu-product__title {
+  font-size  : 0.8rem;
+  font-weight: 600;
+  color      : var(--cbu-text);
+  line-height: 1.3;
+  display    : -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow   : hidden;
+  text-decoration: none;
+}
+.cbu-product__title:hover {
+  color: var(--cbu-accent);
+}
+.cbu-product__price-row {
+  display    : flex;
+  align-items: baseline;
+  gap        : 6px;
+  flex-wrap  : wrap;
+}
+.cbu-product__price {
+  font-size  : 0.85rem;
+  font-weight: 700;
+  color      : var(--cbu-text);
+}
+.cbu-product__compare-price {
+  font-size     : 0.75rem;
+  color         : var(--cbu-text-muted);
+  text-decoration: line-through;
+}
+
+/* ── Variant select ──────────────────────────────────────────── */
+.cbu-product__variant-select {
+  width        : 100%;
+  padding      : 5px 8px;
+  border       : 1px solid var(--cbu-border);
+  border-radius: 6px;
+  font-size    : 0.75rem;
+  background   : #fff;
+  cursor       : pointer;
+}
+.cbu-product__variant-select:focus {
+  outline     : 2px solid var(--cbu-accent);
+  outline-offset: 2px;
+  border-color: var(--cbu-accent);
+}
+
+/* ── Quick-add button ────────────────────────────────────────── */
+.cbu-qadd {
+  display        : flex;
+  align-items    : center;
+  justify-content: center;
+  gap            : 6px;
+  width          : 100%;
+  padding        : 8px 12px;
+  border         : 2px solid var(--cbu-accent);
+  border-radius  : 7px;
+  background     : transparent;
+  color          : var(--cbu-accent);
+  font-size      : 0.8rem;
+  font-weight    : 700;
+  cursor         : pointer;
+  transition     : background var(--cbu-transition), color var(--cbu-transition), transform var(--cbu-transition);
+  white-space    : nowrap;
+  margin-block-start: auto;
+}
+.cbu-qadd:hover:not(:disabled) {
+  background: var(--cbu-accent);
+  color     : #fff;
+  transform : translateY(-1px);
+}
+.cbu-qadd:active:not(:disabled) {
+  transform: translateY(0);
+}
+.cbu-qadd:disabled {
+  opacity: 0.5;
+  cursor : not-allowed;
+}
+.cbu-qadd--added {
+  background: var(--cbu-success);
+  border-color: var(--cbu-success);
+  color     : #fff;
+}
+.cbu-qadd--loading .cbu-qadd__spinner { display: block; }
+.cbu-qadd--loading .cbu-qadd__text    { display: none; }
+
+.cbu-qadd__spinner {
+  display: none;
+  width  : 14px;
+  height : 14px;
+  border : 2px solid rgba(255,255,255,0.4);
+  border-top-color: currentColor;
+  border-radius   : 50%;
+  animation       : cbu-spin 0.7s linear infinite;
+  flex-shrink     : 0;
+}
+@keyframes cbu-spin { to { transform: rotate(360deg); } }
+
+/* ── Savings footer bar ──────────────────────────────────────── */
+.cbu-savings-bar {
+  display        : flex;
+  align-items    : center;
+  justify-content: space-between;
+  flex-wrap      : wrap;
+  gap            : 8px;
+  padding        : 12px 20px;
+  background     : color-mix(in srgb, var(--cbu-success) 10%, transparent);
+  border-block-start: 1px solid color-mix(in srgb, var(--cbu-success) 25%, transparent);
+}
+.cbu-savings-bar[hidden] { display: none; }
+.cbu-savings-bar__label {
+  font-size  : 0.85rem;
+  font-weight: 600;
+  color      : var(--cbu-success);
+}
+.cbu-savings-bar__amount {
+  font-size  : 1rem;
+  font-weight: 800;
+  color      : var(--cbu-success);
+}
+
+/* ── Mobile ──────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .cbu-body {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cbu-header__subtitle {
+    display: none;
+  }
+}
+@media (max-width: 320px) {
+  .cbu-body {
+    grid-template-columns: 1fr;
+  }
+}
+{%- endstyle -%}
+
+<div
+  id="cbu-section-{{ section.id }}"
+  class="cbu-wrapper"
+  data-section-id="{{ section.id }}"
+>
+  <cart-bundle-upsell
+    data-trigger-ids="{{ trigger_ids | split: ',' | join: ',' }}"
+    data-discount-type="{{ section.settings.discount_type }}"
+    data-discount-value="{{ section.settings.discount_value }}"
+    data-max-show="{{ max_show }}"
+    data-enable-dismiss="{{ section.settings.enable_dismiss }}"
+    data-locale="{{ request.locale.iso_code }}"
+    data-dismiss-key="cbu-dismissed-{{ section.id }}"
+  >
+    <div class="cbu-card" data-cbu-card>
+      {%- comment %} ── Header / collapse row ── {% endcomment -%}
+      <div
+        class="cbu-header"
+        data-cbu-header
+        role="button"
+        tabindex="0"
+        aria-expanded="true"
+        aria-controls="cbu-body-{{ section.id }}"
+      >
+        <div class="cbu-header__left">
+          <svg class="cbu-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+          <div class="cbu-header__titles">
+            <p class="cbu-header__title">
+              {%- if locale_is_ar -%}{{ t_title_ar }}{%- else -%}{{ t_title }}{%- endif -%}
+            </p>
+            {%- if section.settings.subtitle != blank -%}
+              <p class="cbu-header__subtitle">
+                {%- if locale_is_ar -%}{{ t_subtitle_ar }}{%- else -%}{{ section.settings.subtitle }}{%- endif -%}
+              </p>
+            {%- endif -%}
+          </div>
+        </div>
+
+        <div class="cbu-header__actions">
+          {%- comment %} Collapse / expand chevron ── {% endcomment -%}
+          <button
+            class="cbu-toggle-btn"
+            type="button"
+            data-cbu-toggle
+            aria-label="{% if locale_is_ar %}{{ t_collapse_ar }}{% else %}{{ t_collapse }}{% endif %}"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+              <polyline points="18 15 12 9 6 15"/>
+            </svg>
+          </button>
+
+          {%- if section.settings.enable_dismiss -%}
+            <button
+              class="cbu-dismiss-btn"
+              type="button"
+              data-cbu-dismiss
+              aria-label="{% if locale_is_ar %}{{ t_dismiss_ar }}{% else %}{{ t_dismiss }}{% endif %}"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6"  y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          {%- endif -%}
+        </div>
+      </div>
+
+      {%- comment %} ── Upsell product grid ── {% endcomment -%}
+      <div
+        class="cbu-body"
+        id="cbu-body-{{ section.id }}"
+        role="list"
+        aria-label="{% if locale_is_ar %}{{ t_title_ar }}{% else %}{{ t_title }}{% endif %}"
+        data-cbu-body
+      >
+        {%- assign upsell_count = 0 -%}
+        {%- for block in section.blocks -%}
+          {%- if block.type != 'upsell_product' -%}{%- continue -%}{%- endif -%}
+          {%- if upsell_count >= max_show -%}{%- break -%}{%- endif -%}
+          {%- assign up = block.settings.product -%}
+          {%- if up == blank -%}{%- continue -%}{%- endif -%}
+          {%- assign up_variant = up.selected_or_first_available_variant -%}
+          {%- assign badge = block.settings.badge_label -%}
+          {%- assign upsell_count = upsell_count | plus: 1 -%}
+
+          <div
+            class="cbu-product"
+            role="listitem"
+            data-cbu-product
+            data-product-id="{{ up.id }}"
+            data-variant-id="{{ up_variant.id }}"
+            data-price="{{ up_variant.price }}"
+            {{ block.shopify_attributes }}
+          >
+            {%- if badge != blank -%}
+              <span class="cbu-product__badge" aria-hidden="true">{{ badge | escape }}</span>
+            {%- endif -%}
+
+            <a href="{{ up.url }}" class="cbu-product__img-wrap" tabindex="-1" aria-hidden="true">
+              {%- if up.featured_image -%}
+                <img
+                  class="cbu-product__img"
+                  src="{{ up.featured_image | image_url: width: 240 }}"
+                  alt="{{ up.featured_image.alt | escape }}"
+                  width="240"
+                  height="240"
+                  loading="lazy"
+                >
+              {%- else -%}
+                {{ 'product-1' | placeholder_svg_tag: 'cbu-product__img' }}
+              {%- endif -%}
+            </a>
+
+            <div class="cbu-product__info">
+              <a href="{{ up.url }}" class="cbu-product__title">{{ up.title | escape }}</a>
+
+              {%- comment %} Variant selector ─ only if multiple variants ── {% endcomment -%}
+              {%- if up.variants.size > 1 -%}
+                <select
+                  class="cbu-product__variant-select"
+                  data-cbu-variant-select
+                  aria-label="{% if locale_is_ar %}{{ t_select_option_ar | default: 'اختر خياراً' }}{% else %}Select variant{% endif %} — {{ up.title | escape }}"
+                >
+                  {%- for variant in up.variants -%}
+                    <option
+                      value="{{ variant.id }}"
+                      data-price="{{ variant.price }}"
+                      {%- unless variant.available -%} disabled {%- endunless -%}
+                      {%- if variant == up_variant -%} selected {%- endif -%}
+                    >
+                      {{ variant.title | escape }}
+                      {%- unless variant.available -%} — {% if locale_is_ar %}{{ t_unavailable_ar }}{% else %}{{ t_unavailable }}{% endif %}{%- endunless -%}
+                    </option>
+                  {%- endfor -%}
+                </select>
+              {%- endif -%}
+
+              <div class="cbu-product__price-row">
+                <span class="cbu-product__price" data-cbu-price>
+                  KWD {{ up_variant.price | money_without_currency }}
+                </span>
+                {%- if up_variant.compare_at_price > up_variant.price -%}
+                  <span class="cbu-product__compare-price">
+                    KWD {{ up_variant.compare_at_price | money_without_currency }}
+                  </span>
+                {%- endif -%}
+              </div>
+            </div>
+
+            <button
+              class="cbu-qadd"
+              type="button"
+              data-cbu-qadd
+              aria-label="{% if locale_is_ar %}{{ t_quick_add_ar }}{% else %}{{ t_quick_add }}{% endif %} {{ up.title | escape }}"
+            >
+              <span class="cbu-qadd__spinner" aria-hidden="true"></span>
+              <span class="cbu-qadd__text">
+                {%- if locale_is_ar -%}{{ t_quick_add_ar }}{%- else -%}{{ t_quick_add }}{%- endif -%}
+              </span>
+            </button>
+          </div>
+
+        {%- endfor -%}
+
+        {%- comment %} ── Placeholder cards in theme editor ── {% endcomment -%}
+        {%- if upsell_count == 0 -%}
+          {%- for i in (1..3) -%}
+            <div class="cbu-product" style="opacity:0.4" aria-hidden="true">
+              <div class="cbu-product__img-wrap">
+                {{ 'product-' | append: i | placeholder_svg_tag: 'cbu-product__img' }}
+              </div>
+              <div class="cbu-product__info">
+                <span class="cbu-product__title">Sample Product {{ i }}</span>
+                <div class="cbu-product__price-row">
+                  <span class="cbu-product__price">KWD 0.000</span>
+                </div>
+              </div>
+              <button class="cbu-qadd" disabled aria-hidden="true">
+                <span class="cbu-qadd__text">
+                  {%- if locale_is_ar -%}{{ t_quick_add_ar }}{%- else -%}{{ t_quick_add }}{%- endif -%}
+                </span>
+              </button>
+            </div>
+          {%- endfor -%}
+        {%- endif -%}
+      </div>
+
+      {%- comment %} ── Savings bar ── {% endcomment -%}
+      {%- if section.settings.discount_type != 'none' -%}
+        <div class="cbu-savings-bar" data-cbu-savings-bar hidden aria-live="polite" aria-atomic="true">
+          <span class="cbu-savings-bar__label">
+            {%- if locale_is_ar -%}{{ t_savings_ar }}{%- else -%}{{ t_bundle_savings }}{%- endif -%}
+          </span>
+          <span class="cbu-savings-bar__amount" data-cbu-savings-amount>KWD 0.000</span>
+        </div>
+      {%- endif -%}
+    </div>
+  </cart-bundle-upsell>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const KWD_DIVISOR = 1000;
+
+  function formatKWD(fils) {
+    return 'KWD ' + (fils / KWD_DIVISOR).toFixed(3);
+  }
+
+  /* ── CartBundleUpsell web component ──────────────────────────── */
+  class CartBundleUpsell extends HTMLElement {
+
+    connectedCallback() {
+      this._triggerIds    = this._parseIds(this.dataset.triggerIds);
+      this._discountType  = this.dataset.discountType  || 'none';
+      this._discountValue = parseFloat(this.dataset.discountValue) || 0;
+      this._maxShow       = parseInt(this.dataset.maxShow, 10) || 4;
+      this._enableDismiss = this.dataset.enableDismiss === 'true';
+      this._locale        = this.dataset.locale || 'en';
+      this._dismissKey    = this.dataset.dismissKey || 'cbu-dismissed';
+      this._collapsed     = false;
+
+      /* Skip if already dismissed this session */
+      if (this._enableDismiss && sessionStorage.getItem(this._dismissKey)) {
+        return;
+      }
+
+      this._checkCart();
+      this._attachGlobalListeners();
+    }
+
+    _parseIds(str) {
+      if (!str) return [];
+      return str.split(',').map(s => s.trim()).filter(Boolean).map(Number);
+    }
+
+    /* ── Cart check ──────────────────────────────────────────────── */
+    async _checkCart() {
+      try {
+        const resp = await fetch('/cart.js');
+        if (!resp.ok) throw new Error('Cart fetch failed');
+        const cart = await resp.json();
+
+        const cartProductIds = (cart.items || []).map(i => i.product_id);
+        const triggered = this._triggerIds.some(id => cartProductIds.includes(id));
+
+        if (triggered || this._triggerIds.length === 0) {
+          this._show();
+          this._updateSavings(cart);
+        }
+      } catch (e) {
+        console.warn('[CartBundleUpsell] Cart check failed:', e.message);
+      }
+    }
+
+    _show() {
+      this.setAttribute('data-visible', '');
+      this._bindControls();
+    }
+
+    _hide() {
+      this.removeAttribute('data-visible');
+    }
+
+    /* ── Bind collapse / dismiss ─────────────────────────────────── */
+    _bindControls() {
+      const header   = this.querySelector('[data-cbu-header]');
+      const toggleBtn= this.querySelector('[data-cbu-toggle]');
+      const dismissBtn=this.querySelector('[data-cbu-dismiss]');
+
+      const doToggle = () => this._toggleCollapse();
+
+      if (header) {
+        header.addEventListener('click', (e) => {
+          /* Don't collapse if dismiss button clicked */
+          if (e.target.closest('[data-cbu-dismiss]')) return;
+          doToggle();
+        });
+        header.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            doToggle();
+          }
+        });
+      }
+
+      if (dismissBtn) {
+        dismissBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this._dismiss();
+        });
+      }
+
+      /* Quick-add buttons */
+      this.querySelectorAll('[data-cbu-qadd]').forEach(btn => {
+        const productEl = btn.closest('[data-cbu-product]');
+        if (!productEl) return;
+        btn.addEventListener('click', () => this._quickAdd(productEl, btn));
+      });
+
+      /* Variant selects */
+      this.querySelectorAll('[data-cbu-variant-select]').forEach(sel => {
+        sel.addEventListener('change', () => {
+          const productEl = sel.closest('[data-cbu-product]');
+          if (!productEl) return;
+          const opt = sel.options[sel.selectedIndex];
+          productEl.dataset.variantId = opt.value;
+          productEl.dataset.price     = opt.dataset.price;
+          const priceEl = productEl.querySelector('[data-cbu-price]');
+          if (priceEl) priceEl.textContent = formatKWD(parseInt(opt.dataset.price, 10));
+        });
+      });
+    }
+
+    _toggleCollapse() {
+      this._collapsed = !this._collapsed;
+      const card   = this.querySelector('[data-cbu-card]');
+      const header = this.querySelector('[data-cbu-header]');
+      if (card) card.classList.toggle('cbu-card--collapsed', this._collapsed);
+      if (header) header.setAttribute('aria-expanded', String(!this._collapsed));
+    }
+
+    _dismiss() {
+      if (this._enableDismiss) {
+        sessionStorage.setItem(this._dismissKey, '1');
+      }
+      this._hide();
+    }
+
+    /* ── Quick add ───────────────────────────────────────────────── */
+    async _quickAdd(productEl, btn) {
+      const variantId = parseInt(productEl.dataset.variantId, 10);
+      if (!variantId) return;
+
+      btn.classList.add('cbu-qadd--loading');
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch('/cart/add.js', {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body   : JSON.stringify({
+            items: [{
+              id        : variantId,
+              quantity  : 1,
+              properties: { _cbu_upsell: 'true' }
+            }]
+          })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.description || 'Add failed');
+        }
+
+        /* Mark as added */
+        btn.classList.remove('cbu-qadd--loading');
+        btn.classList.add('cbu-qadd--added');
+        const textEl = btn.querySelector('.cbu-qadd__text');
+        if (textEl) {
+          textEl.textContent = this._locale === 'ar' ? 'تمت الإضافة ✓' : 'Added ✓';
+        }
+
+        /* Dispatch cart update event */
+        document.dispatchEvent(new CustomEvent('cart:updated', { bubbles: true }));
+        this.dispatchEvent(new CustomEvent('cbu:added', {
+          bubbles: true,
+          detail : { variantId, productId: productEl.dataset.productId }
+        }));
+
+        /* Recalculate savings */
+        const addedPrice = parseInt(productEl.dataset.price, 10);
+        this._incrementSavings(addedPrice);
+
+      } catch (e) {
+        console.error('[CartBundleUpsell] Quick-add error:', e.message);
+        btn.classList.remove('cbu-qadd--loading');
+        btn.disabled = false;
+        alert(this._locale === 'ar'
+          ? 'تعذّرت الإضافة إلى السلة. يرجى المحاولة مرة أخرى.'
+          : 'Could not add to cart. Please try again.');
+      }
+    }
+
+    /* ── Savings calculation ─────────────────────────────────────── */
+    _updateSavings(cart) {
+      if (this._discountType === 'none') return;
+
+      /* Sum prices of items that are part of a bundle */
+      const bundleTotal = (cart.items || [])
+        .filter(i => i.properties && i.properties._cbu_upsell === 'true')
+        .reduce((sum, i) => sum + i.price * i.quantity, 0);
+
+      this._renderSavings(bundleTotal);
+    }
+
+    _incrementSavings(addedPrice) {
+      const bar = this.querySelector('[data-cbu-savings-bar]');
+      if (!bar) return;
+
+      const amountEl = this.querySelector('[data-cbu-savings-amount]');
+      if (!amountEl) return;
+
+      /* Parse existing amount */
+      const current = parseFloat(amountEl.textContent.replace('KWD', '').trim()) * KWD_DIVISOR || 0;
+      let savings = 0;
+
+      if (this._discountType === 'percentage') {
+        savings = Math.round(addedPrice * (this._discountValue / 100));
+      } else if (this._discountType === 'fixed') {
+        savings = Math.round(this._discountValue * KWD_DIVISOR);
+      }
+
+      const newTotal = current + savings;
+      if (newTotal > 0) {
+        amountEl.textContent = formatKWD(newTotal);
+        bar.hidden = false;
+      }
+    }
+
+    _renderSavings(bundleTotal) {
+      const bar = this.querySelector('[data-cbu-savings-bar]');
+      if (!bar) return;
+
+      let savings = 0;
+      if (this._discountType === 'percentage') {
+        savings = Math.round(bundleTotal * (this._discountValue / 100));
+      } else if (this._discountType === 'fixed') {
+        savings = Math.round(this._discountValue * KWD_DIVISOR);
+      }
+
+      const amountEl = this.querySelector('[data-cbu-savings-amount]');
+      if (!amountEl) return;
+
+      if (savings > 0) {
+        amountEl.textContent = formatKWD(savings);
+        bar.hidden = false;
+      }
+    }
+
+    /* ── Re-check cart on updates (e.g., from main add-to-cart) ─── */
+    _attachGlobalListeners() {
+      document.addEventListener('cart:updated', () => {
+        this._checkCart();
+      });
+
+      /* Also respond to FBT additions */
+      document.addEventListener('fbt:added', () => {
+        this._checkCart();
+      });
+    }
+  }
+
+  if (!customElements.get('cart-bundle-upsell')) {
+    customElements.define('cart-bundle-upsell', CartBundleUpsell);
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Cart Bundle Upsell",
+  "tag": "section",
+  "class": "cart-upsell-section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Title",
+      "default": "Complete Your Bundle"
+    },
+    {
+      "type": "text",
+      "id": "subtitle",
+      "label": "Subtitle",
+      "default": "Add these products to unlock bundle savings"
+    },
+    {
+      "type": "range",
+      "id": "max_show",
+      "label": "Max upsell products to show",
+      "min": 2,
+      "max": 6,
+      "step": 1,
+      "default": 4
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_dismiss",
+      "label": "Allow customers to dismiss",
+      "info": "Dismissed state is stored per session (resets on new visit).",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Discount"
+    },
+    {
+      "type": "select",
+      "id": "discount_type",
+      "label": "Bundle discount type",
+      "options": [
+        { "value": "none",       "label": "No discount" },
+        { "value": "percentage", "label": "Percentage off" },
+        { "value": "fixed",      "label": "Fixed amount off (KWD)" }
+      ],
+      "default": "percentage"
+    },
+    {
+      "type": "range",
+      "id": "discount_value",
+      "label": "Discount value",
+      "min": 0,
+      "max": 50,
+      "step": 0.5,
+      "default": 10,
+      "info": "Percentage or KWD amount depending on type above"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Padding top",
+      "min": 0,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Padding bottom",
+      "min": 0,
+      "max": 60,
+      "step": 4,
+      "unit": "px",
+      "default": 16
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "color_background",
+      "label": "Card background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "color_border",
+      "label": "Border / divider color",
+      "default": "#e5e7eb"
+    },
+    {
+      "type": "color",
+      "id": "color_accent",
+      "label": "Accent color",
+      "default": "#1d4ed8"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "trigger_product",
+      "name": "Trigger product",
+      "limit": 5,
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product",
+          "info": "Upsell appears when this product is in the cart"
+        }
+      ]
+    },
+    {
+      "type": "upsell_product",
+      "name": "Upsell product",
+      "limit": 6,
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product to upsell"
+        },
+        {
+          "type": "text",
+          "id": "badge_label",
+          "label": "Badge label",
+          "placeholder": "e.g. Popular • Bundle deal",
+          "info": "Short label shown on the product card"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Cart Bundle Upsell",
+      "blocks": []
+    }
+  ],
+  "enabled_on": {
+    "templates": ["cart", "index", "page"]
+  }
+}
+{% endschema %}

@@ -1,0 +1,1041 @@
+{% comment %}
+  Bundle FBT — Frequently Bought Together
+  Al Moallem Mill | Kuwait | KWD | Arabic + English | RTL
+  =========================================================
+  Placement : product pages (below main product section)
+  Behaviour : shows current product + 1–4 companion products.
+              Checkbox selection, variant picker, live price,
+              one-click Add-all-to-cart via /cart/add.js.
+{% endcomment %}
+
+{%- liquid
+  assign t_title         = section.settings.title | default: 'Frequently Bought Together'
+  assign t_title_ar      = 'المنتجات التي تُشترى معاً في العادة'
+  assign t_add_selected  = 'Add selected to cart'
+  assign t_add_selected_ar = 'أضف المحدد إلى السلة'
+  assign t_total         = 'Total:'
+  assign t_total_ar      = 'المجموع:'
+  assign t_save          = 'Save'
+  assign t_save_ar       = 'وفّر'
+  assign t_required      = 'Required'
+  assign t_required_ar   = 'إلزامي'
+  assign t_select_option = 'Select option'
+  assign t_select_option_ar = 'اختر خياراً'
+  assign locale_is_ar    = false
+  if request.locale.iso_code == 'ar'
+    assign locale_is_ar = true
+  endif
+-%}
+
+{%- style -%}
+/* ── Reset / tokens ──────────────────────────────────────────── */
+#shopify-section-{{ section.id }} {
+  --fbt-bg          : {{ section.settings.color_background }};
+  --fbt-border      : {{ section.settings.color_border }};
+  --fbt-accent      : {{ section.settings.color_accent }};
+  --fbt-text        : #1a1a1a;
+  --fbt-text-muted  : #6b7280;
+  --fbt-radius      : 12px;
+  --fbt-gap         : 16px;
+  --fbt-transition  : 0.2s ease;
+  display           : block;
+  padding-block     : {{ section.settings.padding_top }}px {{ section.settings.padding_bottom }}px;
+}
+
+/* ── Wrapper ─────────────────────────────────────────────────── */
+.fbt-wrapper {
+  max-width     : 900px;
+  margin-inline : auto;
+  padding-inline: 20px;
+}
+
+/* ── Header ─────────────────────────────────────────────────── */
+.fbt-header {
+  display        : flex;
+  align-items    : center;
+  gap            : 10px;
+  margin-block-end: 20px;
+}
+.fbt-header__icon {
+  width : 24px;
+  height: 24px;
+  color : var(--fbt-accent);
+  flex-shrink: 0;
+}
+.fbt-header__title {
+  font-size  : 1.2rem;
+  font-weight: 700;
+  margin     : 0;
+  color      : var(--fbt-text);
+}
+
+/* ── Card ────────────────────────────────────────────────────── */
+.fbt-card {
+  background   : var(--fbt-bg);
+  border       : 1px solid var(--fbt-border);
+  border-radius: var(--fbt-radius);
+  padding      : 24px;
+}
+
+/* ── Products row ────────────────────────────────────────────── */
+.fbt-products {
+  display  : flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap      : var(--fbt-gap);
+}
+
+/* vertical layout override */
+.fbt-layout-vertical .fbt-products {
+  flex-direction: column;
+}
+
+/* compact layout override */
+.fbt-layout-compact .fbt-product {
+  --fbt-img-size: 64px;
+}
+
+/* ── Connector ───────────────────────────────────────────────── */
+.fbt-connector {
+  display    : flex;
+  align-items: center;
+  align-self : center;
+  padding-block-start: 0;
+  color      : var(--fbt-accent);
+  font-size  : 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+  flex-shrink: 0;
+}
+.fbt-layout-vertical .fbt-connector {
+  transform: rotate(90deg);
+  align-self: flex-start;
+  margin-inline-start: 32px;
+}
+
+/* ── Single product item ─────────────────────────────────────── */
+.fbt-product {
+  --fbt-img-size: 96px;
+  display  : flex;
+  flex-direction: column;
+  gap      : 8px;
+  flex     : 1 1 160px;
+  min-width: 140px;
+}
+.fbt-product--unchecked {
+  opacity: 0.5;
+}
+.fbt-product__checkbox-row {
+  display    : flex;
+  align-items: center;
+  gap        : 8px;
+}
+.fbt-product__checkbox {
+  width : 18px;
+  height: 18px;
+  accent-color: var(--fbt-accent);
+  cursor : pointer;
+  flex-shrink: 0;
+}
+.fbt-product__label {
+  font-size  : 0.75rem;
+  font-weight: 600;
+  color      : var(--fbt-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fbt-product__label--required {
+  color: #dc2626;
+}
+.fbt-product__image-wrap {
+  position     : relative;
+  width        : var(--fbt-img-size);
+  aspect-ratio : 1;
+  border-radius: 8px;
+  overflow     : hidden;
+  border       : 1px solid var(--fbt-border);
+  flex-shrink  : 0;
+}
+.fbt-product__image {
+  width     : 100%;
+  height    : 100%;
+  object-fit: cover;
+  display   : block;
+  transition: transform var(--fbt-transition);
+}
+.fbt-product__image-wrap:hover .fbt-product__image {
+  transform: scale(1.04);
+}
+.fbt-product__info {
+  display       : flex;
+  flex-direction: column;
+  gap           : 4px;
+}
+.fbt-product__title {
+  font-size  : 0.875rem;
+  font-weight: 600;
+  color      : var(--fbt-text);
+  line-height: 1.3;
+  display    : -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow   : hidden;
+  text-decoration: none;
+}
+.fbt-product__title:hover {
+  color: var(--fbt-accent);
+}
+.fbt-product__price {
+  font-size  : 0.875rem;
+  font-weight: 700;
+  color      : var(--fbt-text);
+}
+.fbt-product__price--compare {
+  font-size     : 0.75rem;
+  font-weight   : 400;
+  color         : var(--fbt-text-muted);
+  text-decoration: line-through;
+  margin-inline-start: 4px;
+}
+.fbt-product__variant-select {
+  width        : 100%;
+  padding      : 6px 10px;
+  border       : 1px solid var(--fbt-border);
+  border-radius: 6px;
+  font-size    : 0.8rem;
+  background   : #fff;
+  cursor       : pointer;
+  transition   : border-color var(--fbt-transition);
+}
+.fbt-product__variant-select:focus {
+  outline     : 2px solid var(--fbt-accent);
+  outline-offset: 2px;
+  border-color: var(--fbt-accent);
+}
+
+/* ── Footer ─────────────────────────────────────────────────── */
+.fbt-footer {
+  display        : flex;
+  flex-wrap      : wrap;
+  align-items    : center;
+  justify-content: space-between;
+  gap            : 16px;
+  margin-block-start: 24px;
+  padding-block-start: 20px;
+  border-block-start : 1px solid var(--fbt-border);
+}
+.fbt-total-group {
+  display    : flex;
+  flex-direction: column;
+  gap        : 2px;
+}
+.fbt-total__label {
+  font-size : 0.8rem;
+  color     : var(--fbt-text-muted);
+}
+.fbt-total__price {
+  font-size  : 1.5rem;
+  font-weight: 800;
+  color      : var(--fbt-text);
+}
+.fbt-total__savings {
+  font-size : 0.8rem;
+  color     : #16a34a;
+  font-weight: 600;
+}
+.fbt-atc {
+  display        : inline-flex;
+  align-items    : center;
+  gap            : 8px;
+  background     : var(--fbt-accent);
+  color          : #fff;
+  border         : none;
+  border-radius  : 8px;
+  padding        : 14px 28px;
+  font-size      : 0.95rem;
+  font-weight    : 700;
+  cursor         : pointer;
+  transition     : background var(--fbt-transition), transform var(--fbt-transition);
+  white-space    : nowrap;
+}
+.fbt-atc:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.fbt-atc:active:not(:disabled) {
+  transform: translateY(0);
+}
+.fbt-atc:disabled {
+  opacity: 0.5;
+  cursor : not-allowed;
+}
+.fbt-atc__spinner {
+  display: none;
+  width  : 16px;
+  height : 16px;
+  border : 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius   : 50%;
+  animation       : fbt-spin 0.7s linear infinite;
+}
+.fbt-atc--loading .fbt-atc__spinner { display: block; }
+.fbt-atc--loading .fbt-atc__text    { display: none; }
+
+@keyframes fbt-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Success toast ───────────────────────────────────────────── */
+.fbt-toast {
+  position     : fixed;
+  inset-block-end : 24px;
+  inset-inline-end: 24px;
+  background   : #16a34a;
+  color        : #fff;
+  padding      : 12px 20px;
+  border-radius: 8px;
+  font-size    : 0.9rem;
+  font-weight  : 600;
+  box-shadow   : 0 4px 20px rgba(0,0,0,0.2);
+  transform    : translateY(60px);
+  opacity      : 0;
+  transition   : transform 0.3s ease, opacity 0.3s ease;
+  z-index      : 9999;
+  pointer-events: none;
+}
+.fbt-toast--visible {
+  transform: translateY(0);
+  opacity  : 1;
+}
+
+/* ── Skeleton loader ─────────────────────────────────────────── */
+.fbt-skeleton {
+  display: flex;
+  gap    : var(--fbt-gap);
+  flex-wrap: wrap;
+}
+.fbt-skeleton__item {
+  flex: 1 1 140px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.fbt-skeleton__img,
+.fbt-skeleton__line {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: fbt-shimmer 1.4s infinite;
+  border-radius: 6px;
+}
+.fbt-skeleton__img  { height: 96px; }
+.fbt-skeleton__line { height: 14px; }
+.fbt-skeleton__line--short { width: 60%; }
+
+@keyframes fbt-shimmer {
+  0%   { background-position:  200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Mobile ──────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .fbt-footer {
+    flex-direction: column;
+    align-items   : stretch;
+  }
+  .fbt-atc {
+    justify-content: center;
+  }
+  .fbt-product {
+    flex: 1 1 100%;
+  }
+  .fbt-connector {
+    align-self  : flex-start;
+    margin-block: 0;
+  }
+}
+{%- endstyle -%}
+
+{%- comment %} ── Collect companion products from blocks ── {% endcomment -%}
+{%- assign companion_products = '' | split: '' -%}
+{%- for block in section.blocks -%}
+  {%- if block.type == 'product' and block.settings.product != blank -%}
+    {%- assign companion_products = companion_products | append: block.settings.product.id | append: ',' -%}
+  {%- endif -%}
+{%- endfor -%}
+
+{%- assign use_auto = false -%}
+{%- if section.settings.auto_recommendations and companion_products == '' -%}
+  {%- assign use_auto = true -%}
+{%- endif -%}
+
+{%- comment %} Skip rendering if no companions and auto is off ─ avoids blank section {% endcomment -%}
+{%- if companion_products == '' and use_auto == false -%}
+  {%- unless request.design_mode -%}
+    {%- comment %} Hide entirely in storefront when nothing to show {% endcomment -%}
+    <style>#shopify-section-{{ section.id }}{display:none}</style>
+  {%- endunless -%}
+{%- endif -%}
+
+<div
+  id="fbt-section-{{ section.id }}"
+  class="fbt-wrapper fbt-layout-{{ section.settings.layout }}"
+  data-section-id="{{ section.id }}"
+>
+  {%- comment %} ── Header ── {% endcomment -%}
+  <div class="fbt-header" aria-label="{{ t_title }}">
+    <svg class="fbt-header__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <path d="M16 10a4 4 0 0 1-8 0"/>
+    </svg>
+    <h2 class="fbt-header__title">
+      {%- if locale_is_ar -%}
+        {{ t_title_ar }}
+      {%- else -%}
+        {{ t_title }}
+      {%- endif -%}
+    </h2>
+  </div>
+
+  {%- comment %} ── Web component ── {% endcomment -%}
+  <fbt-bundle
+    class="fbt-card"
+    data-product-id="{{ product.id }}"
+    data-use-auto="{{ use_auto }}"
+    data-discount-type="{{ section.settings.discount_type }}"
+    data-discount-value="{{ section.settings.discount_value }}"
+    data-currency-symbol="KWD"
+    data-locale="{{ request.locale.iso_code }}"
+    aria-label="{% if locale_is_ar %}{{ t_title_ar }}{% else %}{{ t_title }}{% endif %}"
+  >
+
+    {%- comment %} ── Skeleton (shown while JS initialises auto mode) ── {% endcomment -%}
+    {%- if use_auto -%}
+    <div class="fbt-skeleton" aria-hidden="true" data-fbt-skeleton>
+      {%- for i in (1..3) -%}
+        <div class="fbt-skeleton__item">
+          <div class="fbt-skeleton__img"></div>
+          <div class="fbt-skeleton__line"></div>
+          <div class="fbt-skeleton__line fbt-skeleton__line--short"></div>
+        </div>
+        {%- unless forloop.last -%}
+          <div class="fbt-connector" aria-hidden="true">+</div>
+        {%- endunless -%}
+      {%- endfor -%}
+    </div>
+    {%- endif -%}
+
+    {%- comment %} ── Product list ── {% endcomment -%}
+    <div class="fbt-products" role="group" aria-label="Bundle items" data-fbt-products>
+
+      {%- comment %} ── Current / anchor product ── {% endcomment -%}
+      <div
+        class="fbt-product fbt-product--current"
+        data-fbt-item
+        data-product-id="{{ product.id }}"
+        data-variant-id="{{ product.selected_or_first_available_variant.id }}"
+        data-price="{{ product.selected_or_first_available_variant.price }}"
+        data-required="true"
+      >
+        <div class="fbt-product__checkbox-row">
+          <input
+            type="checkbox"
+            class="fbt-product__checkbox"
+            id="fbt-current-{{ section.id }}"
+            checked
+            disabled
+            aria-label="{{ product.title | escape }}"
+          >
+          <span class="fbt-product__label fbt-product__label--required">
+            {%- if locale_is_ar -%}{{ t_required_ar }}{%- else -%}{{ t_required }}{%- endif -%}
+          </span>
+        </div>
+
+        <a href="{{ product.url }}" class="fbt-product__image-wrap" tabindex="-1" aria-hidden="true">
+          {%- if product.featured_image -%}
+            <img
+              class="fbt-product__image"
+              src="{{ product.featured_image | image_url: width: 200 }}"
+              alt="{{ product.featured_image.alt | escape }}"
+              width="200"
+              height="200"
+              loading="lazy"
+            >
+          {%- else -%}
+            {{ 'product-1' | placeholder_svg_tag: 'fbt-product__image' }}
+          {%- endif -%}
+        </a>
+
+        <div class="fbt-product__info">
+          <a href="{{ product.url }}" class="fbt-product__title">{{ product.title | escape }}</a>
+          <p class="fbt-product__price" data-fbt-price>
+            KWD {{ product.selected_or_first_available_variant.price | money_without_currency }}
+          </p>
+        </div>
+      </div>
+
+      {%- comment %} ── Companion products from blocks ── {% endcomment -%}
+      {%- for block in section.blocks -%}
+        {%- if block.type == 'product' -%}
+          {%- assign comp = block.settings.product -%}
+          {%- if comp == blank -%}{%- continue -%}{%- endif -%}
+          {%- assign comp_variant = comp.selected_or_first_available_variant -%}
+          {%- assign block_label = block.settings.label | default: comp.title -%}
+          {%- assign block_required = block.settings.required -%}
+
+          <div class="fbt-connector" aria-hidden="true">+</div>
+
+          <div
+            class="fbt-product"
+            data-fbt-item
+            data-product-id="{{ comp.id }}"
+            data-variant-id="{{ comp_variant.id }}"
+            data-price="{{ comp_variant.price }}"
+            data-required="{{ block_required }}"
+            {{ block.shopify_attributes }}
+          >
+            <div class="fbt-product__checkbox-row">
+              <input
+                type="checkbox"
+                class="fbt-product__checkbox"
+                id="fbt-comp-{{ section.id }}-{{ forloop.index }}"
+                {%- if block_required -%} checked disabled {%- else -%} checked {%- endif -%}
+                aria-label="{{ comp.title | escape }}"
+                data-fbt-checkbox
+              >
+              {%- if block_label != blank -%}
+                <span class="fbt-product__label {% if block_required %}fbt-product__label--required{% endif %}">
+                  {{ block_label | escape }}
+                </span>
+              {%- endif -%}
+            </div>
+
+            <a href="{{ comp.url }}" class="fbt-product__image-wrap" tabindex="-1" aria-hidden="true">
+              {%- if comp.featured_image -%}
+                <img
+                  class="fbt-product__image"
+                  src="{{ comp.featured_image | image_url: width: 200 }}"
+                  alt="{{ comp.featured_image.alt | escape }}"
+                  width="200"
+                  height="200"
+                  loading="lazy"
+                >
+              {%- else -%}
+                {{ 'product-1' | placeholder_svg_tag: 'fbt-product__image' }}
+              {%- endif -%}
+            </a>
+
+            <div class="fbt-product__info">
+              <a href="{{ comp.url }}" class="fbt-product__title">{{ comp.title | escape }}</a>
+
+              {%- comment %} Variant selector ── only render if product has variants {% endcomment -%}
+              {%- if comp.variants.size > 1 -%}
+                <select
+                  class="fbt-product__variant-select"
+                  data-fbt-variant-select
+                  aria-label="{% if locale_is_ar %}{{ t_select_option_ar }}{% else %}{{ t_select_option }}{% endif %} — {{ comp.title | escape }}"
+                >
+                  {%- for variant in comp.variants -%}
+                    <option
+                      value="{{ variant.id }}"
+                      data-price="{{ variant.price }}"
+                      {%- unless variant.available -%} disabled {%- endunless -%}
+                      {%- if variant == comp_variant -%} selected {%- endif -%}
+                    >
+                      {{ variant.title | escape }}
+                      {%- unless variant.available -%} — {% if locale_is_ar %}غير متوفر{% else %}Unavailable{% endif %}{%- endunless -%}
+                    </option>
+                  {%- endfor -%}
+                </select>
+              {%- endif -%}
+
+              <p class="fbt-product__price" data-fbt-price>
+                KWD {{ comp_variant.price | money_without_currency }}
+              </p>
+            </div>
+          </div>
+
+        {%- endif -%}
+      {%- endfor -%}
+
+      {%- comment %} ── Auto-recommendation placeholder (JS fills this) ── {% endcomment -%}
+      {%- if use_auto -%}
+        <template data-fbt-auto-template>
+          <!-- JS injects rendered companion cards here -->
+        </template>
+      {%- endif -%}
+
+    </div>{%- comment %} /.fbt-products {% endcomment -%}
+
+    {%- comment %} ── Footer ── {% endcomment -%}
+    <div class="fbt-footer">
+      <div class="fbt-total-group" aria-live="polite" aria-atomic="true">
+        <span class="fbt-total__label">
+          {%- if locale_is_ar -%}{{ t_total_ar }}{%- else -%}{{ t_total }}{%- endif -%}
+        </span>
+        <span class="fbt-total__price" data-fbt-total-price>KWD 0.000</span>
+        <span class="fbt-total__savings" data-fbt-savings hidden></span>
+      </div>
+
+      <button
+        class="fbt-atc"
+        type="button"
+        data-fbt-atc
+        aria-label="{% if locale_is_ar %}{{ t_add_selected_ar }}{% else %}{{ t_add_selected }}{% endif %}"
+      >
+        <span class="fbt-atc__spinner" aria-hidden="true"></span>
+        <span class="fbt-atc__text">
+          {%- if locale_is_ar -%}{{ t_add_selected_ar }}{%- else -%}{{ t_add_selected }}{%- endif -%}
+        </span>
+      </button>
+    </div>
+
+  </fbt-bundle>
+
+  {%- comment %} ── Success toast (shared) ── {% endcomment -%}
+  <div
+    class="fbt-toast"
+    role="status"
+    aria-live="polite"
+    data-fbt-toast
+  >
+    {%- if locale_is_ar -%}تمت الإضافة إلى السلة ✓{%- else -%}Added to cart ✓{%- endif -%}
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Helpers ─────────────────────────────────────────────────── */
+  const KWD_DIVISOR = 1000;  /* Shopify stores KWD in fils (×1000) */
+
+  function formatKWD(fils) {
+    return 'KWD ' + (fils / KWD_DIVISOR).toFixed(3);
+  }
+
+  /* ── FbtBundle web component ─────────────────────────────────── */
+  class FbtBundle extends HTMLElement {
+    connectedCallback() {
+      this._discountType  = this.dataset.discountType  || 'none';
+      this._discountValue = parseFloat(this.dataset.discountValue) || 0;
+      this._locale        = this.dataset.locale || 'en';
+      this._useAuto       = this.dataset.useAuto === 'true';
+      this._productId     = this.dataset.productId;
+
+      if (this._useAuto) {
+        this._loadAutoRecommendations();
+      } else {
+        this._init();
+      }
+    }
+
+    /* ── Auto recommendations ──────────────────────────────────── */
+    async _loadAutoRecommendations() {
+      const skeleton = this.closest('[data-section-id]')
+        ?.querySelector('[data-fbt-skeleton]');
+
+      try {
+        const limit = 3;
+        const url   = `/recommendations/products.json?product_id=${this._productId}&limit=${limit}&intent=related`;
+        const resp  = await fetch(url);
+        if (!resp.ok) throw new Error('Recs fetch failed');
+        const data  = await resp.json();
+
+        if (data.products && data.products.length > 0) {
+          this._injectAutoProducts(data.products);
+        }
+      } catch (e) {
+        console.warn('[FBT] Auto recommendations unavailable:', e.message);
+      } finally {
+        if (skeleton) skeleton.hidden = true;
+        this._init();
+      }
+    }
+
+    _injectAutoProducts(products) {
+      const container = this.querySelector('[data-fbt-products]');
+      if (!container) return;
+
+      products.slice(0, 4).forEach((prod) => {
+        const variant = prod.variants?.[0];
+        if (!variant) return;
+
+        const connector = document.createElement('div');
+        connector.className = 'fbt-connector';
+        connector.setAttribute('aria-hidden', 'true');
+        connector.textContent = '+';
+        container.appendChild(connector);
+
+        const item = document.createElement('div');
+        item.className = 'fbt-product';
+        item.dataset.fbtItem   = '';
+        item.dataset.productId = prod.id;
+        item.dataset.variantId = variant.id;
+        item.dataset.price     = variant.price;
+        item.dataset.required  = 'false';
+
+        const imgSrc = prod.featured_image
+          ? prod.featured_image + '&width=200'
+          : '';
+
+        /* Build variant options HTML */
+        let variantHtml = '';
+        if (prod.variants.length > 1) {
+          const opts = prod.variants.map(v => {
+            const avail = v.available ? '' : ' disabled';
+            const sel   = v.id === variant.id ? ' selected' : '';
+            return `<option value="${v.id}" data-price="${v.price}"${avail}${sel}>${this._esc(v.title)}</option>`;
+          }).join('');
+
+          const ariaLabel = this._locale === 'ar'
+            ? `اختر خياراً — ${this._esc(prod.title)}`
+            : `Select option — ${this._esc(prod.title)}`;
+
+          variantHtml = `
+            <select class="fbt-product__variant-select" data-fbt-variant-select aria-label="${ariaLabel}">
+              ${opts}
+            </select>`;
+        }
+
+        item.innerHTML = `
+          <div class="fbt-product__checkbox-row">
+            <input type="checkbox" class="fbt-product__checkbox" checked
+              aria-label="${this._esc(prod.title)}" data-fbt-checkbox>
+          </div>
+          <a href="${prod.url}" class="fbt-product__image-wrap" tabindex="-1" aria-hidden="true">
+            ${imgSrc
+              ? `<img class="fbt-product__image" src="${imgSrc}" alt="${this._esc(prod.title)}" width="200" height="200" loading="lazy">`
+              : '<div style="width:100%;height:100%;background:#f3f4f6;"></div>'}
+          </a>
+          <div class="fbt-product__info">
+            <a href="${prod.url}" class="fbt-product__title">${this._esc(prod.title)}</a>
+            ${variantHtml}
+            <p class="fbt-product__price" data-fbt-price>${formatKWD(variant.price)}</p>
+          </div>`;
+
+        container.appendChild(item);
+      });
+    }
+
+    _esc(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /* ── Core initialisation ───────────────────────────────────── */
+    _init() {
+      this._items  = Array.from(this.querySelectorAll('[data-fbt-item]'));
+      this._atcBtn = this.querySelector('[data-fbt-atc]');
+      this._totalEl= this.querySelector('[data-fbt-total-price]');
+      this._saveEl = this.querySelector('[data-fbt-savings]');
+
+      this._attachListeners();
+      this._recalc();
+    }
+
+    _attachListeners() {
+      this._items.forEach(item => {
+        const cb  = item.querySelector('[data-fbt-checkbox]');
+        const sel = item.querySelector('[data-fbt-variant-select]');
+
+        if (cb) {
+          cb.addEventListener('change', () => {
+            item.classList.toggle('fbt-product--unchecked', !cb.checked);
+            this._recalc();
+          });
+        }
+
+        if (sel) {
+          sel.addEventListener('change', () => {
+            const opt = sel.options[sel.selectedIndex];
+            item.dataset.variantId = opt.value;
+            item.dataset.price     = opt.dataset.price;
+            const priceEl = item.querySelector('[data-fbt-price]');
+            if (priceEl) priceEl.textContent = formatKWD(parseInt(opt.dataset.price, 10));
+            this._recalc();
+          });
+        }
+      });
+
+      if (this._atcBtn) {
+        this._atcBtn.addEventListener('click', () => this._addToCart());
+        this._atcBtn.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this._addToCart();
+          }
+        });
+      }
+    }
+
+    /* ── Price calculation ─────────────────────────────────────── */
+    _recalc() {
+      let rawTotal   = 0;
+      let checkedCnt = 0;
+
+      this._items.forEach(item => {
+        const cb = item.querySelector('[data-fbt-checkbox]');
+        const isChecked = !cb || cb.checked || cb.disabled;
+        if (isChecked) {
+          rawTotal += parseInt(item.dataset.price || 0, 10);
+          checkedCnt++;
+        }
+      });
+
+      let discounted = rawTotal;
+      let savings    = 0;
+
+      if (this._discountType === 'percentage' && this._discountValue > 0) {
+        savings    = Math.round(rawTotal * (this._discountValue / 100));
+        discounted = rawTotal - savings;
+      } else if (this._discountType === 'fixed' && this._discountValue > 0) {
+        savings    = Math.round(this._discountValue * KWD_DIVISOR);
+        discounted = Math.max(0, rawTotal - savings);
+      }
+
+      if (this._totalEl) {
+        this._totalEl.textContent = formatKWD(discounted);
+      }
+
+      if (this._saveEl) {
+        if (savings > 0) {
+          const saveLabel = this._locale === 'ar' ? 'وفّر' : 'Save';
+          this._saveEl.textContent = `${saveLabel} ${formatKWD(savings)}`;
+          this._saveEl.hidden = false;
+        } else {
+          this._saveEl.hidden = true;
+        }
+      }
+
+      if (this._atcBtn) {
+        this._atcBtn.disabled = checkedCnt === 0;
+      }
+    }
+
+    /* ── Add to cart ─────────────────────────────────────────────── */
+    async _addToCart() {
+      const items = [];
+
+      this._items.forEach(item => {
+        const cb = item.querySelector('[data-fbt-checkbox]');
+        const isChecked = !cb || cb.checked || cb.disabled;
+        if (!isChecked) return;
+
+        const variantId = parseInt(item.dataset.variantId, 10);
+        if (!variantId) return;
+
+        items.push({
+          id          : variantId,
+          quantity    : 1,
+          properties  : { _fbt_bundle: 'true' }
+        });
+      });
+
+      if (!items.length) return;
+
+      this._setLoading(true);
+
+      try {
+        const resp = await fetch('/cart/add.js', {
+          method : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body   : JSON.stringify({ items })
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.description || 'Add to cart failed');
+        }
+
+        this._showToast();
+        document.dispatchEvent(new CustomEvent('cart:updated', { bubbles: true }));
+
+        /* Refresh cart drawer if present */
+        const drawerRefreshEvent = new CustomEvent('fbt:added', {
+          bubbles: true,
+          detail : { items }
+        });
+        this.dispatchEvent(drawerRefreshEvent);
+
+      } catch (e) {
+        console.error('[FBT] Add to cart error:', e.message);
+        alert(this._locale === 'ar'
+          ? 'حدث خطأ أثناء الإضافة إلى السلة. حاول مجدداً.'
+          : 'Could not add items to cart. Please try again.');
+      } finally {
+        this._setLoading(false);
+      }
+    }
+
+    _setLoading(on) {
+      if (this._atcBtn) {
+        this._atcBtn.classList.toggle('fbt-atc--loading', on);
+        this._atcBtn.disabled = on;
+      }
+    }
+
+    _showToast() {
+      const toast = this.closest('[data-section-id]')
+        ?.querySelector('[data-fbt-toast]');
+      if (!toast) return;
+      toast.classList.add('fbt-toast--visible');
+      setTimeout(() => toast.classList.remove('fbt-toast--visible'), 3000);
+    }
+  }
+
+  /* ── Register once ───────────────────────────────────────────── */
+  if (!customElements.get('fbt-bundle')) {
+    customElements.define('fbt-bundle', FbtBundle);
+  }
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Frequently Bought Together",
+  "tag": "section",
+  "class": "fbt-section",
+  "settings": [
+    {
+      "type": "header",
+      "content": "Content"
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "label": "Section title",
+      "default": "Frequently Bought Together"
+    },
+    {
+      "type": "checkbox",
+      "id": "auto_recommendations",
+      "label": "Use automatic product recommendations",
+      "info": "Uses Shopify's recommendations API. Overridden by manual product blocks.",
+      "default": true
+    },
+    {
+      "type": "header",
+      "content": "Discount"
+    },
+    {
+      "type": "select",
+      "id": "discount_type",
+      "label": "Bundle discount type",
+      "options": [
+        { "value": "none",       "label": "No discount" },
+        { "value": "percentage", "label": "Percentage off" },
+        { "value": "fixed",      "label": "Fixed amount off (KWD)" }
+      ],
+      "default": "none"
+    },
+    {
+      "type": "range",
+      "id": "discount_value",
+      "label": "Discount value",
+      "min": 0,
+      "max": 50,
+      "step": 0.5,
+      "default": 10,
+      "info": "Percentage or KWD amount depending on type above"
+    },
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "select",
+      "id": "layout",
+      "label": "Products layout",
+      "options": [
+        { "value": "horizontal", "label": "Horizontal (default)" },
+        { "value": "vertical",   "label": "Vertical stack" },
+        { "value": "compact",    "label": "Compact" }
+      ],
+      "default": "horizontal"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "label": "Padding top",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "label": "Padding bottom",
+      "min": 0,
+      "max": 80,
+      "step": 4,
+      "unit": "px",
+      "default": 40
+    },
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "color_background",
+      "label": "Card background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "color_border",
+      "label": "Border color",
+      "default": "#e5e7eb"
+    },
+    {
+      "type": "color",
+      "id": "color_accent",
+      "label": "Accent / button color",
+      "default": "#1d4ed8"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "product",
+      "name": "Companion product",
+      "limit": 4,
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Product"
+        },
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Badge label",
+          "placeholder": "e.g. Pairs well with",
+          "info": "Leave blank to hide label"
+        },
+        {
+          "type": "checkbox",
+          "id": "required",
+          "label": "Always selected (required)",
+          "default": false
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Frequently Bought Together",
+      "blocks": []
+    }
+  ],
+  "enabled_on": {
+    "templates": ["product"]
+  }
+}
+{% endschema %}

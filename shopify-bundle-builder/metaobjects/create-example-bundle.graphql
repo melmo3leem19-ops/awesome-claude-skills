@@ -1,0 +1,308 @@
+# ============================================================
+# Al Moallem Mill – Example Bundle Metaobject Entry
+# "Build Your Own Home Decor Bundle"
+# Kuwait store · Arabic + English · Shopify Admin API 2024-10
+# ============================================================
+#
+# Prerequisites:
+#   • bundle_config metaobject definition must already exist
+#     (run create-definitions.graphql first)
+#   • Replace placeholder GIDs with real Shopify resource IDs
+#     before executing.
+#
+# Usage: POST to https://{shop}.myshopify.com/admin/api/2024-10/graphql.json
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# STEP 1 — Create the bundle_config entry
+# ─────────────────────────────────────────────────────────────
+mutation CreateHomeDecorBundle {
+  metaobjectCreate(
+    metaobject: {
+      type: "bundle_config"
+      # handle is derived from the "handle" field value below;
+      # Shopify will also auto-generate a GID handle from the type.
+      fields: [
+
+        # ── Identity ─────────────────────────────────────────
+        {
+          key: "name"
+          value: "Build Your Own Home Decor Bundle"
+        }
+        {
+          key: "handle"
+          value: "home-decor-bundle-5"
+        }
+
+        # ── Status & type ────────────────────────────────────
+        {
+          key: "status"
+          value: "active"
+        }
+        {
+          key: "bundle_type"
+          value: "mix_match"
+        }
+
+        # ── Description ───────────────────────────────────────
+        {
+          key: "description"
+          value: "Choose any 5 home décor items and enjoy 20% off your entire selection. Mix and match across our full home décor range — wall art, cushions, candles, vases, and more."
+        }
+
+        # ── Product quantity rules ────────────────────────────
+        {
+          key: "min_products"
+          value: "5"
+        }
+        {
+          key: "max_products"
+          value: "5"
+        }
+        {
+          key: "bundle_limit"
+          value: "5"
+        }
+
+        # ── Discount configuration ────────────────────────────
+        {
+          key: "discount_type"
+          value: "percentage"
+        }
+        {
+          key: "discount_value"
+          value: "20"
+        }
+        {
+          key: "discount_code"
+          value: "HOME20"
+        }
+
+        # ── Tier discounts (JSON) ─────────────────────────────
+        # Customers see progressive savings as they add more items.
+        {
+          key: "tier_discounts"
+          value: "[{\"min_qty\":3,\"discount\":10,\"label\":\"Choose 3: 10% off\"},{\"min_qty\":5,\"discount\":20,\"label\":\"Choose 5: 20% off\"}]"
+        }
+
+        # ── UX flags ─────────────────────────────────────────
+        {
+          key: "show_savings"
+          value: "true"
+        }
+        {
+          key: "show_progress_bar"
+          value: "true"
+        }
+        {
+          key: "enable_search"
+          value: "true"
+        }
+
+        # ── Layout defaults ───────────────────────────────────
+        {
+          key: "desktop_layout"
+          value: "grid"
+        }
+        {
+          key: "desktop_columns"
+          value: "3"
+        }
+        {
+          key: "mobile_layout"
+          value: "grid"
+        }
+        {
+          key: "mobile_columns"
+          value: "2"
+        }
+
+        # ── Merchandising ─────────────────────────────────────
+        {
+          key: "priority"
+          value: "1"
+        }
+
+        # ── Optional: source collections ─────────────────────
+        # Replace GIDs with real collection IDs from your store.
+        # {
+        #   key: "collections"
+        #   value: "[\"gid://shopify/Collection/123456789\"]"
+        # }
+
+        # ── Optional: free gift (uncomment when ready) ────────
+        # {
+        #   key: "free_gift_product"
+        #   value: "gid://shopify/Product/987654321"
+        # }
+        # {
+        #   key: "free_gift_threshold"
+        #   value: "5"
+        # }
+
+        # ── Optional: schedule (uncomment when needed) ────────
+        # {
+        #   key: "start_date"
+        #   value: "2024-01-01T00:00:00Z"
+        # }
+        # {
+        #   key: "end_date"
+        #   value: "2024-12-31T23:59:59Z"
+        # }
+
+      ]
+    }
+  ) {
+    metaobject {
+      id
+      handle
+      type
+      fields {
+        key
+        value
+      }
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+
+
+# ─────────────────────────────────────────────────────────────
+# STEP 2 — Create bundle steps for the wizard experience
+#
+# This example shows 3 steps (Living Room, Bedroom, Kitchen).
+# Each mutation should be run separately after saving the
+# bundle_config ID returned from STEP 1.
+#
+# Replace BUNDLE_CONFIG_GID with the actual GID from STEP 1,
+# e.g. "gid://shopify/Metaobject/112233445566"
+# ─────────────────────────────────────────────────────────────
+
+# STEP 2a — Living Room Décor step
+mutation CreateBundleStep_LivingRoom {
+  metaobjectCreate(
+    metaobject: {
+      type: "bundle_step"
+      fields: [
+        { key: "title",        value: "Living Room" }
+        { key: "title_ar",     value: "غرفة المعيشة" }
+        { key: "description",  value: "Choose cushions, wall art, throws, and accent pieces for your living room." }
+        { key: "step_number",  value: "1" }
+        { key: "min_quantity", value: "1" }
+        { key: "max_quantity", value: "5" }
+        { key: "required",     value: "false" }
+        { key: "icon",         value: "sofa" }
+        # Replace with real bundle_config GID:
+        { key: "bundle_config", value: "BUNDLE_CONFIG_GID" }
+        # Replace with real collection GIDs:
+        # { key: "allowed_collections", value: "[\"gid://shopify/Collection/LIVING_ROOM_COLLECTION_ID\"]" }
+      ]
+    }
+  ) {
+    metaobject {
+      id
+      handle
+      fields { key value }
+    }
+    userErrors { field message code }
+  }
+}
+
+# STEP 2b — Bedroom Décor step
+mutation CreateBundleStep_Bedroom {
+  metaobjectCreate(
+    metaobject: {
+      type: "bundle_step"
+      fields: [
+        { key: "title",        value: "Bedroom" }
+        { key: "title_ar",     value: "غرفة النوم" }
+        { key: "description",  value: "Elevate your bedroom with decorative pillows, candles, and elegant accessories." }
+        { key: "step_number",  value: "2" }
+        { key: "min_quantity", value: "1" }
+        { key: "max_quantity", value: "5" }
+        { key: "required",     value: "false" }
+        { key: "icon",         value: "bed" }
+        { key: "bundle_config", value: "BUNDLE_CONFIG_GID" }
+      ]
+    }
+  ) {
+    metaobject {
+      id
+      handle
+      fields { key value }
+    }
+    userErrors { field message code }
+  }
+}
+
+# STEP 2c — Kitchen & Dining step
+mutation CreateBundleStep_Kitchen {
+  metaobjectCreate(
+    metaobject: {
+      type: "bundle_step"
+      fields: [
+        { key: "title",        value: "Kitchen & Dining" }
+        { key: "title_ar",     value: "المطبخ وغرفة الطعام" }
+        { key: "description",  value: "Add style to your kitchen and dining area with serving pieces, vases, and centrepieces." }
+        { key: "step_number",  value: "3" }
+        { key: "min_quantity", value: "1" }
+        { key: "max_quantity", value: "5" }
+        { key: "required",     value: "false" }
+        { key: "icon",         value: "kitchen" }
+        { key: "bundle_config", value: "BUNDLE_CONFIG_GID" }
+      ]
+    }
+  ) {
+    metaobject {
+      id
+      handle
+      fields { key value }
+    }
+    userErrors { field message code }
+  }
+}
+
+
+# ─────────────────────────────────────────────────────────────
+# REFERENCE — Fetch the created bundle to verify
+# ─────────────────────────────────────────────────────────────
+query FetchBundleByHandle($handle: String!) {
+  metaobjectByHandle(handle: { type: "bundle_config", handle: $handle }) {
+    id
+    handle
+    type
+    updatedAt
+    fields {
+      key
+      value
+      type
+    }
+  }
+}
+
+# Variables for the fetch query:
+# {
+#   "handle": "home-decor-bundle-5"
+# }
+
+
+# ─────────────────────────────────────────────────────────────
+# REFERENCE — List all bundle steps for a given config
+# ─────────────────────────────────────────────────────────────
+query ListBundleSteps {
+  metaobjects(type: "bundle_step", first: 50) {
+    nodes {
+      id
+      handle
+      fields {
+        key
+        value
+      }
+    }
+  }
+}

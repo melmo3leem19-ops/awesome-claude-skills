@@ -1,0 +1,478 @@
+# ============================================================
+# Al Moallem Mill – Bundle Builder Metaobject Definitions
+# Kuwait store · Arabic + English · Shopify Admin API 2024-10
+# ============================================================
+#
+# Run these two mutations in order:
+#   1. Create bundle_config definition
+#   2. Create bundle_step definition (references bundle_config)
+#
+# Usage: POST to https://{shop}.myshopify.com/admin/api/2024-10/graphql.json
+# ============================================================
+
+
+# ─────────────────────────────────────────────────────────────
+# MUTATION 1 — bundle_config
+# Holds all top-level settings for a single bundle campaign.
+# ─────────────────────────────────────────────────────────────
+mutation CreateBundleConfigDefinition {
+  metaobjectDefinitionCreate(
+    definition: {
+      type: "bundle_config"
+      name: "Bundle Config"
+      description: "Top-level configuration for a product bundle (Al Moallem Mill)"
+      displayNameKey: "name"
+      access: {
+        storefront: PUBLIC_READ
+      }
+      capabilities: {
+        publishable: { enabled: true }
+        translatable: { enabled: true }
+      }
+      fieldDefinitions: [
+
+        # ── Identity ─────────────────────────────────────────
+        {
+          key: "name"
+          name: "Bundle Name"
+          description: "Display name shown on the storefront (English)"
+          type: "single_line_text_field"
+          required: true
+          validations: [
+            { name: "min", value: "1" }
+            { name: "max", value: "255" }
+          ]
+        }
+
+        {
+          key: "handle"
+          name: "Handle"
+          description: "URL-friendly slug, e.g. home-decor-bundle-5"
+          type: "single_line_text_field"
+          required: true
+          validations: [
+            { name: "min", value: "1" }
+            { name: "max", value: "255" }
+          ]
+        }
+
+        # ── Status & type ────────────────────────────────────
+        {
+          key: "status"
+          name: "Status"
+          description: "Lifecycle state: active | inactive | draft"
+          type: "single_line_text_field"
+          validations: [
+            {
+              name: "choices"
+              value: "[\"active\",\"inactive\",\"draft\"]"
+            }
+          ]
+        }
+
+        {
+          key: "bundle_type"
+          name: "Bundle Type"
+          description: "mix_match | fixed | box | bogo | tiered | fbt | gift_set | wizard"
+          type: "single_line_text_field"
+          validations: [
+            {
+              name: "choices"
+              value: "[\"mix_match\",\"fixed\",\"box\",\"bogo\",\"tiered\",\"fbt\",\"gift_set\",\"wizard\"]"
+            }
+          ]
+        }
+
+        # ── Copy ─────────────────────────────────────────────
+        {
+          key: "description"
+          name: "Description"
+          description: "Storefront description (supports basic markdown)"
+          type: "multi_line_text_field"
+        }
+
+        # ── Product quantity rules ────────────────────────────
+        {
+          key: "min_products"
+          name: "Minimum Products"
+          description: "Minimum number of products the customer must select"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+          ]
+        }
+
+        {
+          key: "max_products"
+          name: "Maximum Products"
+          description: "Maximum number of products the customer may select"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+          ]
+        }
+
+        {
+          key: "bundle_limit"
+          name: "Bundle Limit"
+          description: "Total quantity of units allowed across the entire bundle"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+          ]
+        }
+
+        # ── Product sourcing ──────────────────────────────────
+        {
+          key: "collections"
+          name: "Source Collections"
+          description: "Collections whose products are eligible for this bundle"
+          type: "list.collection_reference"
+        }
+
+        {
+          key: "required_products"
+          name: "Required Products"
+          description: "Products that must always be included in the bundle"
+          type: "list.product_reference"
+        }
+
+        {
+          key: "excluded_products"
+          name: "Excluded Products"
+          description: "Products explicitly excluded from bundle eligibility"
+          type: "list.product_reference"
+        }
+
+        # ── Discount configuration ────────────────────────────
+        {
+          key: "discount_type"
+          name: "Discount Type"
+          description: "percentage | fixed | free_product | tiered"
+          type: "single_line_text_field"
+          validations: [
+            {
+              name: "choices"
+              value: "[\"percentage\",\"fixed\",\"free_product\",\"tiered\"]"
+            }
+          ]
+        }
+
+        {
+          key: "discount_value"
+          name: "Discount Value"
+          description: "Numeric discount value (percentage points or fixed KWD amount)"
+          type: "number_decimal"
+          validations: [
+            { name: "min", value: "0" }
+          ]
+        }
+
+        {
+          key: "discount_code"
+          name: "Checkout Discount Code"
+          description: "Shopify discount code applied automatically at checkout (e.g. HOME20)"
+          type: "single_line_text_field"
+        }
+
+        # ── Tiered discount JSON ──────────────────────────────
+        {
+          key: "tier_discounts"
+          name: "Tier Discounts"
+          description: "JSON array of tier thresholds, e.g. [{\"min_qty\":3,\"discount\":10,\"label\":\"10% off\"}]"
+          type: "json"
+        }
+
+        # ── Free gift ─────────────────────────────────────────
+        {
+          key: "free_gift_product"
+          name: "Free Gift Product"
+          description: "Product added automatically when free-gift threshold is reached"
+          type: "product_reference"
+        }
+
+        {
+          key: "free_gift_threshold"
+          name: "Free Gift Threshold"
+          description: "Number of items the customer must select to unlock the free gift"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+          ]
+        }
+
+        # ── Scheduling ────────────────────────────────────────
+        {
+          key: "start_date"
+          name: "Start Date"
+          description: "Date/time from which the bundle becomes active (ISO 8601, UTC)"
+          type: "date_time"
+        }
+
+        {
+          key: "end_date"
+          name: "End Date"
+          description: "Date/time after which the bundle is deactivated (ISO 8601, UTC)"
+          type: "date_time"
+        }
+
+        # ── Merchandising ─────────────────────────────────────
+        {
+          key: "priority"
+          name: "Priority"
+          description: "Display priority; lower numbers appear first"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "0" }
+          ]
+        }
+
+        {
+          key: "tag_filter"
+          name: "Tag Filter"
+          description: "Only products carrying ALL of these tags are shown in the picker"
+          type: "list.single_line_text_field"
+        }
+
+        {
+          key: "vendor_filter"
+          name: "Vendor Filter"
+          description: "Restrict eligible products to these vendors"
+          type: "list.single_line_text_field"
+        }
+
+        # ── UX flags ─────────────────────────────────────────
+        {
+          key: "show_savings"
+          name: "Show Savings"
+          description: "Display 'You Save X KWD' in the bundle summary"
+          type: "boolean"
+        }
+
+        {
+          key: "show_progress_bar"
+          name: "Show Progress Bar"
+          description: "Show a progress bar indicating how many items remain to complete the bundle"
+          type: "boolean"
+        }
+
+        {
+          key: "enable_search"
+          name: "Enable Product Search"
+          description: "Show a search field in the product picker"
+          type: "boolean"
+        }
+
+        # ── Layout — desktop ──────────────────────────────────
+        {
+          key: "desktop_layout"
+          name: "Desktop Layout"
+          description: "grid | carousel"
+          type: "single_line_text_field"
+          validations: [
+            { name: "choices", value: "[\"grid\",\"carousel\"]" }
+          ]
+        }
+
+        {
+          key: "desktop_columns"
+          name: "Desktop Columns"
+          description: "Number of product columns on desktop (grid layout)"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+            { name: "max", value: "6" }
+          ]
+        }
+
+        # ── Layout — mobile ───────────────────────────────────
+        {
+          key: "mobile_layout"
+          name: "Mobile Layout"
+          description: "grid | carousel"
+          type: "single_line_text_field"
+          validations: [
+            { name: "choices", value: "[\"grid\",\"carousel\"]" }
+          ]
+        }
+
+        {
+          key: "mobile_columns"
+          name: "Mobile Columns"
+          description: "Number of product columns on mobile"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+            { name: "max", value: "3" }
+          ]
+        }
+
+      ] # end fieldDefinitions
+    }
+  ) {
+    metaobjectDefinition {
+      id
+      type
+      name
+      fieldDefinitions {
+        key
+        name
+        type { name }
+        required
+      }
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}
+
+
+# ─────────────────────────────────────────────────────────────
+# MUTATION 2 — bundle_step
+# A single step / tab within a wizard-style or multi-step bundle.
+# Depends on bundle_config already existing (metaobject_reference).
+# ─────────────────────────────────────────────────────────────
+mutation CreateBundleStepDefinition {
+  metaobjectDefinitionCreate(
+    definition: {
+      type: "bundle_step"
+      name: "Bundle Step"
+      description: "One step/tab in a multi-step bundle wizard (Al Moallem Mill)"
+      displayNameKey: "title"
+      access: {
+        storefront: PUBLIC_READ
+      }
+      capabilities: {
+        publishable: { enabled: true }
+        translatable: { enabled: true }
+      }
+      fieldDefinitions: [
+
+        # ── Identity ─────────────────────────────────────────
+        {
+          key: "title"
+          name: "Step Title (EN)"
+          description: "Step heading shown on the storefront in English"
+          type: "single_line_text_field"
+          required: true
+          validations: [
+            { name: "min", value: "1" }
+            { name: "max", value: "255" }
+          ]
+        }
+
+        {
+          key: "title_ar"
+          name: "Step Title (AR)"
+          description: "Arabic heading for RTL storefronts"
+          type: "single_line_text_field"
+          validations: [
+            { name: "max", value: "255" }
+          ]
+        }
+
+        {
+          key: "description"
+          name: "Step Description"
+          description: "Optional guidance text shown beneath the step title"
+          type: "multi_line_text_field"
+        }
+
+        # ── Ordering ──────────────────────────────────────────
+        {
+          key: "step_number"
+          name: "Step Number"
+          description: "1-based position of this step in the bundle wizard"
+          type: "number_integer"
+          required: true
+          validations: [
+            { name: "min", value: "1" }
+          ]
+        }
+
+        # ── Quantity rules ────────────────────────────────────
+        {
+          key: "min_quantity"
+          name: "Minimum Quantity"
+          description: "Minimum number of products the customer must pick in this step"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "0" }
+          ]
+        }
+
+        {
+          key: "max_quantity"
+          name: "Maximum Quantity"
+          description: "Maximum number of products the customer may pick in this step"
+          type: "number_integer"
+          validations: [
+            { name: "min", value: "1" }
+          ]
+        }
+
+        {
+          key: "required"
+          name: "Required Step"
+          description: "When true the customer cannot advance without completing this step"
+          type: "boolean"
+        }
+
+        # ── Product sourcing ──────────────────────────────────
+        {
+          key: "allowed_collections"
+          name: "Allowed Collections"
+          description: "Only products from these collections are shown in this step"
+          type: "list.collection_reference"
+        }
+
+        {
+          key: "allowed_products"
+          name: "Allowed Products"
+          description: "Specific products available for selection in this step (overrides collections)"
+          type: "list.product_reference"
+        }
+
+        # ── Display ───────────────────────────────────────────
+        {
+          key: "icon"
+          name: "Icon"
+          description: "Icon identifier or emoji used in the step tab (e.g. 'sofa', '🛋️')"
+          type: "single_line_text_field"
+        }
+
+        # ── Parent reference ──────────────────────────────────
+        {
+          key: "bundle_config"
+          name: "Bundle Config"
+          description: "The parent bundle_config this step belongs to"
+          type: "metaobject_reference"
+          validations: [
+            { name: "metaobject_definition_type", value: "bundle_config" }
+          ]
+        }
+
+      ] # end fieldDefinitions
+    }
+  ) {
+    metaobjectDefinition {
+      id
+      type
+      name
+      fieldDefinitions {
+        key
+        name
+        type { name }
+        required
+      }
+    }
+    userErrors {
+      field
+      message
+      code
+    }
+  }
+}

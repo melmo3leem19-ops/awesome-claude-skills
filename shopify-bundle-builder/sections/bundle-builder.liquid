@@ -1,0 +1,3352 @@
+{%- liquid
+  assign bb = section.settings
+  assign bundle_type = bb.bundle_type | default: 'mix_match'
+  assign is_wizard = false
+  if bundle_type == 'wizard'
+    assign is_wizard = true
+  endif
+  assign is_tiered = false
+  if bundle_type == 'tiered'
+    assign is_tiered = true
+  endif
+  assign locale_dir = 'ltr'
+  if request.locale.iso_code == 'ar'
+    assign locale_dir = 'rtl'
+  endif
+  assign min_qty = bb.min_products | default: 1
+  assign max_qty = bb.max_products | default: 6
+  assign section_id = section.id
+-%}
+
+{%- comment -%} ── Metaobject config override ──────────────────────────────── {%- endcomment -%}
+{%- if bb.metaobject_id != blank -%}
+  {%- assign mo = shop.metaobjects[bb.metaobject_id] -%}
+  {%- if mo != nil -%}
+    {%- assign bundle_type   = mo.bundle_type.value   | default: bundle_type -%}
+    {%- assign min_qty       = mo.min_products.value  | default: min_qty -%}
+    {%- assign max_qty       = mo.max_products.value  | default: max_qty -%}
+  {%- endif -%}
+{%- endif -%}
+
+{%- comment -%} ── Tiers JSON for JS ────────────────────────────────────────── {%- endcomment -%}
+{%- capture tiers_json -%}
+[
+  {%- if bb.tier_1_qty > 0 -%}{"qty":{{ bb.tier_1_qty }},"discount":{{ bb.tier_1_discount }},"label":{{ bb.tier_1_label | default: '' | json }},"color":{{ bb.color_tier_1 | default: '#2ecc71' | json }}}{%- endif -%}
+  {%- if bb.tier_2_qty > 0 -%},{"qty":{{ bb.tier_2_qty }},"discount":{{ bb.tier_2_discount }},"label":{{ bb.tier_2_label | default: '' | json }},"color":{{ bb.color_tier_2 | default: '#3498db' | json }}}{%- endif -%}
+  {%- if bb.tier_3_qty > 0 -%},{"qty":{{ bb.tier_3_qty }},"discount":{{ bb.tier_3_discount }},"label":{{ bb.tier_3_label | default: '' | json }},"color":"#9b59b6"}{%- endif -%}
+  {%- if bb.tier_4_qty > 0 -%},{"qty":{{ bb.tier_4_qty }},"discount":{{ bb.tier_4_discount }},"label":{{ bb.tier_4_label | default: '' | json }},"color":"#e67e22"}{%- endif -%}
+  {%- if bb.tier_5_qty > 0 -%},{"qty":{{ bb.tier_5_qty }},"discount":{{ bb.tier_5_discount }},"label":{{ bb.tier_5_label | default: '' | json }},"color":"#e74c3c"}{%- endif -%}
+]
+{%- endcapture -%}
+
+{%- comment -%} ── Free gift product JSON ───────────────────────────────────── {%- endcomment -%}
+{%- if bb.enable_free_gift and bb.free_gift_product != blank -%}
+  {%- assign fg_product = bb.free_gift_product -%}
+  {%- capture free_gift_json -%}{"id":{{ fg_product.variants.first.id }},"title":{{ fg_product.title | json }},"image":{{ fg_product.featured_image | image_url: width: 200 | json }},"threshold":{{ bb.free_gift_threshold | default: 5 }}}{%- endcapture -%}
+{%- else -%}
+  {%- assign free_gift_json = 'null' -%}
+{%- endif -%}
+
+{%- comment -%} ── Timer end date ───────────────────────────────────────────── {%- endcomment -%}
+{%- assign timer_end = bb.timer_end_date | default: '' -%}
+
+<section
+  id="bundle-builder-{{ section_id }}"
+  class="bundle-builder-section"
+  data-section-id="{{ section_id }}"
+  dir="{{ locale_dir }}"
+  aria-label="{{ 'sections.bundle_builder.aria_label' | t | default: 'Bundle Builder' }}"
+>
+
+  {%- comment -%} ── Countdown Timer ──────────────────────────────────────── {%- endcomment -%}
+  {%- if bb.show_timer and timer_end != blank -%}
+  <div class="bb-timer-bar" role="timer" aria-live="polite" data-end="{{ timer_end }}">
+    <span class="bb-timer-label">{{ 'sections.bundle_builder.timer_label' | t | default: 'Offer ends in' }}</span>
+    <span class="bb-timer-display">
+      <span class="bb-timer-unit" data-unit="days">00</span><span class="bb-timer-sep">d</span>
+      <span class="bb-timer-unit" data-unit="hours">00</span><span class="bb-timer-sep">h</span>
+      <span class="bb-timer-unit" data-unit="minutes">00</span><span class="bb-timer-sep">m</span>
+      <span class="bb-timer-unit" data-unit="seconds">00</span><span class="bb-timer-sep">s</span>
+    </span>
+  </div>
+  {%- endif -%}
+
+  <bundle-builder
+    data-section-id="{{ section_id }}"
+    data-bundle-type="{{ bundle_type }}"
+    data-min="{{ min_qty }}"
+    data-max="{{ max_qty }}"
+    data-currency="{{ shop.currency }}"
+    data-locale="{{ request.locale.iso_code }}"
+    data-dir="{{ locale_dir }}"
+    data-tiers="{{ tiers_json | escape }}"
+    data-free-gift="{{ free_gift_json | escape }}"
+    data-filter-tags="{{ bb.filter_by_tag | default: '' | escape }}"
+    data-filter-vendors="{{ bb.filter_by_vendor | default: '' | escape }}"
+    data-wizard-animation="{{ bb.wizard_step_animation | default: 'slide' }}"
+    data-metaobject-id="{{ bb.metaobject_id | default: '' }}"
+    class="bundle-builder bundle-builder--{{ bundle_type }}{% if is_wizard %} bundle-builder--wizard{% endif %}"
+    role="main"
+  >
+
+    {%- comment -%} ── Section header ───────────────────────────────────────── {%- endcomment -%}
+    <header class="bb-header">
+      <div class="bb-header__inner">
+        {%- if bb.show_bundle_type_badge -%}
+          <span class="bb-type-badge bb-type-badge--{{ bundle_type }}">
+            {{ bb.bundle_type_badge_label | default: bundle_type | replace: '_', ' ' | capitalize }}
+          </span>
+        {%- endif -%}
+        {%- if bb.heading != blank -%}
+          <h2 class="bb-heading">{{ bb.heading }}</h2>
+        {%- endif -%}
+        {%- if bb.subheading != blank -%}
+          <p class="bb-subheading">{{ bb.subheading }}</p>
+        {%- endif -%}
+      </div>
+    </header>
+
+    {%- comment -%} ── Tiered discount bar ──────────────────────────────────── {%- endcomment -%}
+    {%- if is_tiered or bb.tier_1_qty > 0 -%}
+    <div class="bb-tier-bar" role="group" aria-label="{{ 'sections.bundle_builder.tier_bar_label' | t | default: 'Discount tiers' }}">
+      {%- if bb.tier_1_qty > 0 -%}
+      <div class="bb-tier-badge" data-qty="{{ bb.tier_1_qty }}" data-discount="{{ bb.tier_1_discount }}" style="--tier-color:{{ bb.color_tier_1 | default: '#2ecc71' }}">
+        <span class="bb-tier-badge__qty">{{ bb.tier_1_qty }}+</span>
+        <span class="bb-tier-badge__pct">{{ bb.tier_1_discount }}%</span>
+        <span class="bb-tier-badge__label">{{ bb.tier_1_label | default: 'off' }}</span>
+      </div>
+      {%- endif -%}
+      {%- if bb.tier_2_qty > 0 -%}
+      <div class="bb-tier-badge" data-qty="{{ bb.tier_2_qty }}" data-discount="{{ bb.tier_2_discount }}" style="--tier-color:{{ bb.color_tier_2 | default: '#3498db' }}">
+        <span class="bb-tier-badge__qty">{{ bb.tier_2_qty }}+</span>
+        <span class="bb-tier-badge__pct">{{ bb.tier_2_discount }}%</span>
+        <span class="bb-tier-badge__label">{{ bb.tier_3_label | default: 'off' }}</span>
+      </div>
+      {%- endif -%}
+      {%- if bb.tier_3_qty > 0 -%}
+      <div class="bb-tier-badge" data-qty="{{ bb.tier_3_qty }}" data-discount="{{ bb.tier_3_discount }}" style="--tier-color:#9b59b6">
+        <span class="bb-tier-badge__qty">{{ bb.tier_3_qty }}+</span>
+        <span class="bb-tier-badge__pct">{{ bb.tier_3_discount }}%</span>
+        <span class="bb-tier-badge__label">{{ bb.tier_3_label | default: 'off' }}</span>
+      </div>
+      {%- endif -%}
+      {%- if bb.tier_4_qty > 0 -%}
+      <div class="bb-tier-badge" data-qty="{{ bb.tier_4_qty }}" data-discount="{{ bb.tier_4_discount }}" style="--tier-color:#e67e22">
+        <span class="bb-tier-badge__qty">{{ bb.tier_4_qty }}+</span>
+        <span class="bb-tier-badge__pct">{{ bb.tier_4_discount }}%</span>
+        <span class="bb-tier-badge__label">{{ bb.tier_4_label | default: 'off' }}</span>
+      </div>
+      {%- endif -%}
+      {%- if bb.tier_5_qty > 0 -%}
+      <div class="bb-tier-badge" data-qty="{{ bb.tier_5_qty }}" data-discount="{{ bb.tier_5_discount }}" style="--tier-color:#e74c3c">
+        <span class="bb-tier-badge__qty">{{ bb.tier_5_qty }}+</span>
+        <span class="bb-tier-badge__pct">{{ bb.tier_5_discount }}%</span>
+        <span class="bb-tier-badge__label">{{ bb.tier_5_label | default: 'off' }}</span>
+      </div>
+      {%- endif -%}
+    </div>
+    {%- endif -%}
+
+    {%- comment -%} ── Free gift banner (hidden until threshold reached) ────── {%- endcomment -%}
+    {%- if bb.enable_free_gift and bb.free_gift_product != blank -%}
+    <div class="bb-free-gift-banner" hidden aria-live="polite">
+      <div class="bb-free-gift-banner__inner">
+        <span class="bb-free-gift-banner__icon" aria-hidden="true">🎁</span>
+        <span class="bb-free-gift-banner__text">
+          {{ 'sections.bundle_builder.free_gift_unlocked' | t | default: "You've unlocked a free gift!" }}
+        </span>
+        <div class="bb-free-gift-product">
+          {%- assign fg = bb.free_gift_product -%}
+          <img
+            src="{{ fg.featured_image | image_url: width: 60 }}"
+            alt="{{ fg.title | escape }}"
+            width="60" height="60"
+            loading="lazy"
+          >
+          <span>{{ fg.title }}</span>
+        </div>
+      </div>
+    </div>
+    {%- endif -%}
+
+    {%- comment -%} ── Wizard step indicator ────────────────────────────────── {%- endcomment -%}
+    {%- if is_wizard -%}
+    <nav class="bb-wizard-nav" aria-label="{{ 'sections.bundle_builder.wizard_steps_label' | t | default: 'Bundle steps' }}">
+      <div class="bb-wizard-steps" id="bb-wizard-steps-{{ section_id }}">
+        {%- assign step_index = 0 -%}
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'collection' -%}
+            {%- assign step_index = step_index | plus: 1 -%}
+            <button
+              class="bb-wizard-step-btn{% if step_index == 1 %} is-active{% endif %}"
+              data-step="{{ step_index }}"
+              aria-selected="{% if step_index == 1 %}true{% else %}false{% endif %}"
+              aria-controls="bb-step-panel-{{ step_index }}-{{ section_id }}"
+              type="button"
+            >
+              <span class="bb-wizard-step-btn__number" aria-hidden="true">{{ step_index }}</span>
+              <span class="bb-wizard-step-btn__label">
+                {{ block.settings.collection_tab_label | default: block.settings.collection.title | default: 'Step' }}
+              </span>
+              <span class="bb-wizard-step-btn__check" aria-hidden="true">✓</span>
+            </button>
+          {%- endif -%}
+        {%- endfor -%}
+      </div>
+      <div class="bb-wizard-progress-text" aria-live="polite">
+        <span class="bb-wizard-step-current">1</span>
+        {{ 'sections.bundle_builder.wizard_of' | t | default: 'of' }}
+        <span class="bb-wizard-step-total">{{ step_index }}</span>
+      </div>
+    </nav>
+    {%- endif -%}
+
+    {%- comment -%} ── Main layout: picker + sidebar ────────────────────────── {%- endcomment -%}
+    <div class="bb-layout">
+
+      {%- comment -%} ── Product picker panel ─────────────────────────────── {%- endcomment -%}
+      <div class="bb-picker">
+
+        {%- comment -%} ── Search bar ───────────────────────────────────────── {%- endcomment -%}
+        {%- if bb.enable_search -%}
+        <div class="bb-search-bar">
+          <label for="bb-search-{{ section_id }}" class="visually-hidden">
+            {{ 'sections.bundle_builder.search_label' | t | default: 'Search products' }}
+          </label>
+          <input
+            type="search"
+            id="bb-search-{{ section_id }}"
+            class="bb-search-input"
+            placeholder="{{ 'sections.bundle_builder.search_placeholder' | t | default: 'Search products…' }}"
+            autocomplete="off"
+            aria-controls="bb-product-grid-{{ section_id }}"
+          >
+          <span class="bb-search-icon" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </span>
+        </div>
+        {%- endif -%}
+
+        {%- comment -%} ── Collection tabs (non-wizard) / Step panels (wizard) ─ {%- endcomment -%}
+        {%- assign has_collections = false -%}
+        {%- for block in section.blocks -%}
+          {%- if block.type == 'collection' -%}
+            {%- assign has_collections = true -%}
+          {%- endif -%}
+        {%- endfor -%}
+
+        {%- if has_collections -%}
+          {%- unless is_wizard -%}
+          <div class="bb-tabs" role="tablist" aria-label="{{ 'sections.bundle_builder.collections_label' | t | default: 'Product collections' }}">
+            {%- assign tab_index = 0 -%}
+            {%- for block in section.blocks -%}
+              {%- if block.type == 'collection' -%}
+                {%- assign tab_index = tab_index | plus: 1 -%}
+                <button
+                  class="bb-tab{% if tab_index == 1 %} is-active{% endif %}"
+                  role="tab"
+                  data-tab="{{ tab_index }}"
+                  aria-selected="{% if tab_index == 1 %}true{% else %}false{% endif %}"
+                  aria-controls="bb-panel-{{ tab_index }}-{{ section_id }}"
+                  id="bb-tab-{{ tab_index }}-{{ section_id }}"
+                  type="button"
+                  {{ block.shopify_attributes }}
+                >
+                  {%- if block.settings.tab_icon != blank -%}
+                    <span class="bb-tab__icon" aria-hidden="true">{{ block.settings.tab_icon }}</span>
+                  {%- endif -%}
+                  {{ block.settings.collection_tab_label | default: block.settings.collection.title | default: 'Collection' }}
+                </button>
+              {%- endif -%}
+            {%- endfor -%}
+          </div>
+          {%- endunless -%}
+
+          <div class="bb-collections-wrapper" id="bb-product-grid-{{ section_id }}">
+            {%- assign panel_index = 0 -%}
+            {%- for block in section.blocks -%}
+              {%- if block.type == 'collection' -%}
+                {%- assign panel_index = panel_index | plus: 1 -%}
+                {%- assign blk = block.settings -%}
+                {%- assign col = blk.collection -%}
+                {%- assign p_limit = blk.product_limit | default: 50 -%}
+                {%- assign allow_tags   = blk.allow_tag_filter | default: bb.filter_by_tag -%}
+                {%- assign allow_vendors = blk.allow_vendor_filter | default: bb.filter_by_vendor -%}
+
+                {%- comment -%} Build required product ID list for this block {%- endcomment -%}
+                {%- assign req_ids = '' -%}
+                {%- for block2 in section.blocks -%}
+                  {%- if block2.type == 'required_product' and block2.settings.step_ref == panel_index -%}
+                    {%- assign req_ids = req_ids | append: block2.settings.product.id | append: ',' -%}
+                  {%- endif -%}
+                {%- endfor -%}
+
+                <div
+                  class="bb-panel{% if is_wizard %} bb-step-panel{% endif %}{% if panel_index == 1 %} is-active{% endif %}"
+                  id="{% if is_wizard %}bb-step-panel-{{ panel_index }}-{{ section_id }}{% else %}bb-panel-{{ panel_index }}-{{ section_id }}{% endif %}"
+                  role="{% if is_wizard %}region{% else %}tabpanel{% endif %}"
+                  aria-labelledby="{% unless is_wizard %}bb-tab-{{ panel_index }}-{{ section_id }}{% endunless %}"
+                  data-panel="{{ panel_index }}"
+                  data-step-min="{{ blk.step_min_qty | default: 1 }}"
+                  data-step-max="{{ blk.step_max_qty | default: max_qty }}"
+                  data-required-ids="{{ req_ids | remove_last: ',' }}"
+                  data-allow-tags="{{ allow_tags | escape }}"
+                  data-allow-vendors="{{ allow_vendors | escape }}"
+                  {{ block.shopify_attributes }}
+                >
+                  {%- if is_wizard -%}
+                  <div class="bb-step-header">
+                    <h3 class="bb-step-title">
+                      {{ blk.collection_tab_label | default: col.title | default: 'Step' }}
+                    </h3>
+                    {%- if blk.step_description != blank -%}
+                      <p class="bb-step-description">{{ blk.step_description }}</p>
+                    {%- endif -%}
+                  </div>
+                  {%- endif -%}
+
+                  {%- if blk.show_collection_image and col.image -%}
+                  <div class="bb-collection-hero">
+                    <img
+                      src="{{ col.image | image_url: width: 900 }}"
+                      alt="{{ col.title | escape }}"
+                      loading="lazy"
+                      width="900"
+                      height="300"
+                      class="bb-collection-hero__img"
+                    >
+                  </div>
+                  {%- endif -%}
+
+                  <div
+                    class="bb-product-grid"
+                    style="--bb-cols-desktop:{{ blk.desktop_columns | default: bb.desktop_columns | default: 3 }};--bb-cols-mobile:{{ blk.mobile_columns | default: bb.mobile_columns | default: 2 }}"
+                  >
+                    {%- assign products_shown = 0 -%}
+                    {%- for product in col.products limit: p_limit -%}
+
+                      {%- comment -%} Tag / vendor filter ─────────────────────── {%- endcomment -%}
+                      {%- assign tag_ok = true -%}
+                      {%- if allow_tags != blank -%}
+                        {%- assign filter_tags = allow_tags | split: ',' -%}
+                        {%- assign tag_ok = false -%}
+                        {%- for ft in filter_tags -%}
+                          {%- assign ft_clean = ft | strip -%}
+                          {%- if product.tags contains ft_clean -%}
+                            {%- assign tag_ok = true -%}
+                          {%- endif -%}
+                        {%- endfor -%}
+                      {%- endif -%}
+
+                      {%- assign vendor_ok = true -%}
+                      {%- if allow_vendors != blank -%}
+                        {%- assign filter_vendors = allow_vendors | split: ',' -%}
+                        {%- assign vendor_ok = false -%}
+                        {%- for fv in filter_vendors -%}
+                          {%- assign fv_clean = fv | strip -%}
+                          {%- if product.vendor == fv_clean -%}
+                            {%- assign vendor_ok = true -%}
+                          {%- endif -%}
+                        {%- endfor -%}
+                      {%- endif -%}
+
+                      {%- unless tag_ok and vendor_ok -%}{%- continue -%}{%- endunless -%}
+
+                      {%- assign is_required = false -%}
+                      {%- if req_ids contains product.id -%}
+                        {%- assign is_required = true -%}
+                      {%- endif -%}
+
+                      {%- assign first_variant = product.variants.first -%}
+                      {%- assign has_multiple_variants = false -%}
+                      {%- if product.variants.size > 1 -%}
+                        {%- assign has_multiple_variants = true -%}
+                      {%- endif -%}
+
+                      <div
+                        class="bb-product-card{% if is_required %} is-required{% endif %}"
+                        data-product-id="{{ product.id }}"
+                        data-variant-id="{{ first_variant.id }}"
+                        data-title="{{ product.title | escape }}"
+                        data-price="{{ first_variant.price }}"
+                        data-handle="{{ product.handle }}"
+                        data-available="{{ first_variant.available }}"
+                        data-required="{{ is_required }}"
+                        data-has-variants="{{ has_multiple_variants }}"
+                        data-panel="{{ panel_index }}"
+                        tabindex="0"
+                        role="article"
+                        aria-label="{{ product.title | escape }}"
+                      >
+                        <div class="bb-product-card__image-wrap">
+                          {%- if product.featured_image -%}
+                            <img
+                              src="{{ product.featured_image | image_url: width: 400 }}"
+                              alt="{{ product.featured_image.alt | default: product.title | escape }}"
+                              loading="lazy"
+                              width="400"
+                              height="400"
+                              class="bb-product-card__img"
+                            >
+                          {%- else -%}
+                            <div class="bb-product-card__no-image" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+                            </div>
+                          {%- endif -%}
+
+                          {%- unless first_variant.available -%}
+                            <div class="bb-product-card__sold-out" aria-label="{{ 'sections.bundle_builder.sold_out' | t | default: 'Sold out' }}">
+                              {{ 'sections.bundle_builder.sold_out' | t | default: 'Sold out' }}
+                            </div>
+                          {%- endunless -%}
+
+                          {%- if is_required -%}
+                            <div class="bb-product-card__required-badge">
+                              {{ 'sections.bundle_builder.required' | t | default: 'Required' }}
+                            </div>
+                          {%- endif -%}
+
+                          <button
+                            class="bb-product-card__quick-view"
+                            data-product-handle="{{ product.handle }}"
+                            data-product-url="{{ product.url }}"
+                            aria-label="{{ 'sections.bundle_builder.quick_view' | t | default: 'Quick view' }} {{ product.title | escape }}"
+                            type="button"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                          </button>
+                        </div>
+
+                        <div class="bb-product-card__info">
+                          <p class="bb-product-card__vendor">{{ product.vendor }}</p>
+                          <h3 class="bb-product-card__title">{{ product.title }}</h3>
+
+                          <div class="bb-product-card__price-row">
+                            <span class="bb-product-card__price" data-price="{{ first_variant.price }}">
+                              {{ first_variant.price | money }}
+                            </span>
+                            {%- if first_variant.compare_at_price > first_variant.price -%}
+                              <s class="bb-product-card__compare-price">{{ first_variant.compare_at_price | money }}</s>
+                            {%- endif -%}
+                          </div>
+
+                          {%- if has_multiple_variants -%}
+                          <div class="bb-product-card__variant-select-wrap">
+                            <select
+                              class="bb-product-card__variant-select"
+                              aria-label="{{ 'sections.bundle_builder.select_variant' | t | default: 'Select variant' }}"
+                              data-product-id="{{ product.id }}"
+                            >
+                              {%- for variant in product.variants -%}
+                                <option
+                                  value="{{ variant.id }}"
+                                  data-price="{{ variant.price }}"
+                                  data-available="{{ variant.available }}"
+                                  {% unless variant.available %}disabled{% endunless %}
+                                >
+                                  {{ variant.title }} — {{ variant.price | money }}
+                                </option>
+                              {%- endfor -%}
+                            </select>
+                          </div>
+                          {%- endif -%}
+
+                          <div class="bb-product-card__actions">
+                            <button
+                              class="bb-product-card__add-btn"
+                              data-action="add"
+                              data-product-id="{{ product.id }}"
+                              data-variant-id="{{ first_variant.id }}"
+                              aria-label="{{ 'sections.bundle_builder.add_to_bundle' | t | default: 'Add to bundle' }}: {{ product.title | escape }}"
+                              type="button"
+                              {% unless first_variant.available %}disabled aria-disabled="true"{% endunless %}
+                            >
+                              <span class="bb-btn-icon" aria-hidden="true">+</span>
+                              <span class="bb-btn-label">{{ 'sections.bundle_builder.add' | t | default: 'Add' }}</span>
+                            </button>
+                            <button
+                              class="bb-product-card__qty-btn bb-product-card__qty-btn--minus"
+                              data-action="remove"
+                              data-product-id="{{ product.id }}"
+                              data-variant-id="{{ first_variant.id }}"
+                              aria-label="{{ 'sections.bundle_builder.remove_from_bundle' | t | default: 'Remove from bundle' }}: {{ product.title | escape }}"
+                              type="button"
+                              hidden
+                            >−</button>
+                            <span
+                              class="bb-product-card__qty-display"
+                              aria-live="polite"
+                              aria-label="{{ 'sections.bundle_builder.quantity_in_bundle' | t | default: 'Quantity in bundle' }}"
+                              hidden
+                            >0</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {%- assign products_shown = products_shown | plus: 1 -%}
+                    {%- endfor -%}
+
+                    {%- if products_shown == 0 -%}
+                      <p class="bb-empty-collection">{{ 'sections.bundle_builder.no_products' | t | default: 'No products match your filters.' }}</p>
+                    {%- endif -%}
+                  </div><!-- /.bb-product-grid -->
+                </div><!-- /.bb-panel -->
+              {%- endif -%}
+            {%- endfor -%}
+          </div><!-- /.bb-collections-wrapper -->
+        {%- endif -%}
+
+        {%- comment -%} ── Wizard navigation buttons ─────────────────────────── {%- endcomment -%}
+        {%- if is_wizard -%}
+        <div class="bb-wizard-controls" aria-label="{{ 'sections.bundle_builder.wizard_controls' | t | default: 'Step navigation' }}">
+          <button class="bb-wizard-btn bb-wizard-btn--prev" id="bb-prev-{{ section_id }}" type="button" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+            {{ 'sections.bundle_builder.wizard_prev' | t | default: 'Previous' }}
+          </button>
+          <button class="bb-wizard-btn bb-wizard-btn--next" id="bb-next-{{ section_id }}" type="button">
+            {{ 'sections.bundle_builder.wizard_next' | t | default: 'Next' }}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+        </div>
+        {%- endif -%}
+
+      </div><!-- /.bb-picker -->
+
+      {%- comment -%} ── Sidebar summary ───────────────────────────────────── {%- endcomment -%}
+      <aside class="bb-sidebar" aria-label="{{ 'sections.bundle_builder.sidebar_label' | t | default: 'Bundle summary' }}">
+
+        {%- comment -%} ── Progress bar ─────────────────────────────────────── {%- endcomment -%}
+        {%- if bb.show_progress_bar -%}
+        <div class="bb-progress-wrap" aria-label="{{ 'sections.bundle_builder.progress_label' | t | default: 'Bundle progress' }}">
+          <div class="bb-progress-text" aria-live="polite">
+            <span class="bb-progress-current">0</span>
+            {{ 'sections.bundle_builder.of' | t | default: 'of' }}
+            <span class="bb-progress-max">{{ max_qty }}</span>
+            {{ 'sections.bundle_builder.items_selected' | t | default: 'items selected' }}
+          </div>
+          <div
+            class="bb-progress-bar"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="{{ max_qty }}"
+            aria-valuenow="0"
+            aria-label="{{ 'sections.bundle_builder.progress_bar_label' | t | default: 'Bundle progress' }}"
+          >
+            <div class="bb-progress-fill" style="width:0%"></div>
+          </div>
+          <p class="bb-progress-hint" aria-live="polite">
+            {{ 'sections.bundle_builder.progress_hint_start' | t | default: 'Add' }}
+            <strong class="bb-progress-remaining">{{ max_qty }}</strong>
+            {{ 'sections.bundle_builder.progress_hint_end' | t | default: 'more items to complete your bundle' }}
+          </p>
+        </div>
+        {%- endif -%}
+
+        {%- comment -%} ── Active discount display ───────────────────────────── {%- endcomment -%}
+        <div class="bb-active-discount" aria-live="polite" hidden>
+          <span class="bb-active-discount__icon" aria-hidden="true">🏷</span>
+          <span class="bb-active-discount__text"></span>
+        </div>
+        <div class="bb-next-tier-hint" aria-live="polite" hidden>
+          <span class="bb-next-tier-hint__text"></span>
+        </div>
+
+        {%- comment -%} ── Selected items list ───────────────────────────────── {%- endcomment -%}
+        <div class="bb-selection-summary">
+          <h3 class="bb-selection-summary__heading">
+            {{ 'sections.bundle_builder.your_bundle' | t | default: 'Your Bundle' }}
+          </h3>
+          <ul
+            class="bb-selection-list"
+            id="bb-selection-list-{{ section_id }}"
+            aria-label="{{ 'sections.bundle_builder.selected_products' | t | default: 'Selected products' }}"
+            aria-live="polite"
+          >
+            <li class="bb-selection-empty">
+              {{ 'sections.bundle_builder.empty_state' | t | default: 'Your bundle is empty. Start adding products!' }}
+            </li>
+          </ul>
+        </div>
+
+        {%- comment -%} ── Price summary ─────────────────────────────────────── {%- endcomment -%}
+        <div class="bb-price-summary">
+          {%- if bb.show_savings -%}
+          <div class="bb-price-row bb-price-row--original" hidden>
+            <span>{{ 'sections.bundle_builder.original_price' | t | default: 'Original' }}</span>
+            <span class="bb-original-total">{{ 0 | money }}</span>
+          </div>
+          <div class="bb-price-row bb-price-row--savings" hidden>
+            <span>{{ 'sections.bundle_builder.you_save' | t | default: 'You save' }}</span>
+            <span class="bb-savings-amount"></span>
+          </div>
+          {%- endif -%}
+          <div class="bb-price-row bb-price-row--total">
+            <span>{{ 'sections.bundle_builder.total' | t | default: 'Total' }}</span>
+            <strong class="bb-bundle-total" aria-live="polite">{{ 0 | money }}</strong>
+          </div>
+        </div>
+
+        {%- comment -%} ── CTA button ────────────────────────────────────────── {%- endcomment -%}
+        <button
+          class="bb-cta-btn"
+          id="bb-cta-{{ section_id }}"
+          type="button"
+          disabled
+          aria-disabled="true"
+          aria-label="{{ 'sections.bundle_builder.add_bundle_to_cart' | t | default: 'Add bundle to cart' }}"
+        >
+          <span class="bb-cta-btn__icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          </span>
+          <span class="bb-cta-btn__label">{{ 'sections.bundle_builder.add_to_cart' | t | default: 'Add Bundle to Cart' }}</span>
+          <span class="bb-cta-btn__spinner" aria-hidden="true" hidden></span>
+        </button>
+
+        <p class="bb-cta-hint" aria-live="assertive"></p>
+
+        {%- if bb.show_savings -%}
+        <p class="bb-guarantee-text">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          {{ 'sections.bundle_builder.guarantee' | t | default: 'Secure checkout · Free returns' }}
+        </p>
+        {%- endif -%}
+
+      </aside><!-- /.bb-sidebar -->
+    </div><!-- /.bb-layout -->
+
+    {%- comment -%} ── Mobile drawer ─────────────────────────────────────────── {%- endcomment -%}
+    <div class="bb-mobile-drawer" id="bb-drawer-{{ section_id }}" aria-hidden="true">
+      <div class="bb-mobile-drawer__handle" aria-label="{{ 'sections.bundle_builder.open_summary' | t | default: 'Open bundle summary' }}" tabindex="0" role="button">
+        <span class="bb-mobile-drawer__pill"></span>
+        <span class="bb-mobile-drawer__preview">
+          <span class="bb-drawer-qty">0</span> {{ 'sections.bundle_builder.items' | t | default: 'items' }} ·
+          <strong class="bb-drawer-total">{{ 0 | money }}</strong>
+        </span>
+        <span class="bb-mobile-drawer__arrow" aria-hidden="true">▲</span>
+      </div>
+      <div class="bb-mobile-drawer__body">
+        <div class="bb-mobile-drawer__inner">
+          <!-- cloned at runtime -->
+        </div>
+        <button class="bb-cta-btn bb-cta-btn--drawer" type="button" disabled aria-disabled="true">
+          {{ 'sections.bundle_builder.add_to_cart' | t | default: 'Add Bundle to Cart' }}
+        </button>
+      </div>
+    </div>
+
+    {%- comment -%} ── Quick view dialog ─────────────────────────────────────── {%- endcomment -%}
+    <dialog
+      class="bb-quick-view-dialog"
+      id="bb-quick-view-{{ section_id }}"
+      aria-label="{{ 'sections.bundle_builder.quick_view_dialog' | t | default: 'Product quick view' }}"
+      aria-modal="true"
+    >
+      <button class="bb-quick-view-close" type="button" aria-label="{{ 'sections.bundle_builder.close' | t | default: 'Close' }}">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      <div class="bb-quick-view-content" aria-live="polite">
+        <div class="bb-quick-view-loading">
+          <div class="bb-spinner" aria-label="{{ 'sections.bundle_builder.loading' | t | default: 'Loading…' }}"></div>
+        </div>
+      </div>
+    </dialog>
+
+    {%- comment -%} ── Screen-reader status ──────────────────────────────────── {%- endcomment -%}
+    <div class="visually-hidden" aria-live="assertive" id="bb-sr-status-{{ section_id }}"></div>
+
+  </bundle-builder>
+</section>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   BUNDLE BUILDER — Al Moallem Mill
+   All measurements use CSS logical properties for RTL/LTR parity.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── CSS custom properties ─────────────────────────────────────────────── */
+bundle-builder {
+  --bb-color-primary:       {{ section.settings.color_primary       | default: '#1a1a2e' }};
+  --bb-color-accent:        {{ section.settings.color_accent        | default: '#c8a96e' }};
+  --bb-color-bg:            {{ section.settings.color_bg            | default: '#f9f7f4' }};
+  --bb-color-card-bg:       {{ section.settings.color_card_bg       | default: '#ffffff' }};
+  --bb-color-card-border:   {{ section.settings.color_card_border   | default: '#e8e3dc' }};
+  --bb-color-card-hover:    {{ section.settings.color_card_hover_border | default: '#c8a96e' }};
+  --bb-color-text:          {{ section.settings.color_text          | default: '#1a1a2e' }};
+  --bb-color-text-muted:    {{ section.settings.color_text_muted    | default: '#6b6b7b' }};
+  --bb-color-progress-bg:   {{ section.settings.color_progress_bg   | default: '#e8e3dc' }};
+  --bb-color-progress-fill: {{ section.settings.color_accent        | default: '#c8a96e' }};
+  --bb-color-tier-1:        {{ section.settings.color_tier_1        | default: '#2ecc71' }};
+  --bb-color-tier-2:        {{ section.settings.color_tier_2        | default: '#3498db' }};
+  --bb-color-free-gift:     {{ section.settings.color_free_gift     | default: '#e74c3c' }};
+  --bb-color-required:      #e74c3c;
+  --bb-color-success:       #27ae60;
+  --bb-color-disabled:      #b0b0b0;
+  --bb-radius-card:         {{ section.settings.card_border_radius  | default: 12 }}px;
+  --bb-radius-btn:          {{ section.settings.button_border_radius| default: 8 }}px;
+  --bb-font-size-base:      1rem;
+  --bb-font-size-sm:        0.875rem;
+  --bb-font-size-xs:        0.75rem;
+  --bb-transition:          0.25s ease;
+  --bb-shadow-card:         0 2px 12px rgba(0,0,0,.07);
+  --bb-shadow-card-hover:   0 6px 24px rgba(0,0,0,.12);
+  --bb-sidebar-width:       320px;
+  --bb-cols-desktop:        3;
+  --bb-cols-mobile:         2;
+}
+
+/* ── Utility ───────────────────────────────────────────────────────────── */
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Section wrapper ───────────────────────────────────────────────────── */
+.bundle-builder-section {
+  background: var(--bb-color-bg);
+  color: var(--bb-color-text);
+  font-size: var(--bb-font-size-base);
+  padding-block: 3rem;
+  container-type: inline-size;
+}
+
+bundle-builder {
+  display: block;
+  max-width: 1400px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+/* ── Timer bar ─────────────────────────────────────────────────────────── */
+.bb-timer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background: var(--bb-color-primary);
+  color: #fff;
+  padding-block: 0.6rem;
+  padding-inline: 1rem;
+  border-radius: var(--bb-radius-btn);
+  margin-block-end: 1.5rem;
+  font-size: var(--bb-font-size-sm);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.bb-timer-display {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.bb-timer-unit {
+  display: inline-block;
+  min-width: 2ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.1em;
+}
+
+.bb-timer-sep {
+  opacity: 0.7;
+  font-size: 0.85em;
+  padding-inline-end: 0.2rem;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.bb-header { margin-block-end: 1.5rem; }
+.bb-header__inner { text-align: center; }
+
+.bb-type-badge {
+  display: inline-block;
+  padding: 0.2rem 0.75rem;
+  border-radius: 100px;
+  font-size: var(--bb-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--bb-color-accent);
+  color: #fff;
+  margin-block-end: 0.5rem;
+}
+
+.bb-type-badge--tiered  { background: var(--bb-color-tier-1); }
+.bb-type-badge--bogo    { background: #9b59b6; }
+.bb-type-badge--gift_set { background: var(--bb-color-free-gift); }
+.bb-type-badge--wizard  { background: #2c3e50; }
+
+.bb-heading {
+  font-size: clamp(1.5rem, 3cqi, 2.5rem);
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+  color: var(--bb-color-primary);
+}
+
+.bb-subheading {
+  font-size: var(--bb-font-size-base);
+  color: var(--bb-color-text-muted);
+  margin: 0;
+}
+
+/* ── Tier bar ──────────────────────────────────────────────────────────── */
+.bb-tier-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-block-end: 1.5rem;
+}
+
+.bb-tier-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  border: 2px solid var(--tier-color, var(--bb-color-accent));
+  border-radius: var(--bb-radius-card);
+  padding: 0.5rem 1rem;
+  min-width: 70px;
+  background: color-mix(in srgb, var(--tier-color, var(--bb-color-accent)) 10%, transparent);
+  transition: background var(--bb-transition), transform var(--bb-transition), box-shadow var(--bb-transition);
+  cursor: default;
+}
+
+.bb-tier-badge.is-active {
+  background: var(--tier-color, var(--bb-color-accent));
+  color: #fff;
+  transform: scale(1.05);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--tier-color, var(--bb-color-accent)) 40%, transparent);
+}
+
+.bb-tier-badge.is-next {
+  border-style: dashed;
+  animation: tierPulse 1.5s ease-in-out infinite;
+}
+
+.bb-tier-badge__qty  { font-size: 1.1rem; font-weight: 800; line-height: 1; }
+.bb-tier-badge__pct  { font-size: 1.4rem; font-weight: 900; line-height: 1; color: var(--tier-color, var(--bb-color-accent)); }
+.bb-tier-badge.is-active .bb-tier-badge__pct { color: #fff; }
+.bb-tier-badge__label { font-size: var(--bb-font-size-xs); text-transform: uppercase; letter-spacing: 0.05em; }
+
+@keyframes tierPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* ── Free gift banner ──────────────────────────────────────────────────── */
+.bb-free-gift-banner {
+  display: flex;
+  background: color-mix(in srgb, var(--bb-color-free-gift) 12%, white);
+  border: 2px solid var(--bb-color-free-gift);
+  border-radius: var(--bb-radius-card);
+  padding: 0.75rem 1rem;
+  margin-block-end: 1rem;
+  animation: slideDown 0.35s ease;
+}
+
+.bb-free-gift-banner__inner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.bb-free-gift-banner__icon { font-size: 1.5rem; }
+.bb-free-gift-banner__text { font-weight: 700; color: var(--bb-color-free-gift); }
+
+.bb-free-gift-product {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #fff;
+  border-radius: calc(var(--bb-radius-card) - 4px);
+  padding: 0.25rem 0.5rem;
+}
+
+.bb-free-gift-product img {
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+/* ── Wizard nav ────────────────────────────────────────────────────────── */
+.bb-wizard-nav {
+  margin-block-end: 1.5rem;
+}
+
+.bb-wizard-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  counter-reset: wizard-step;
+}
+
+.bb-wizard-step-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border: 2px solid var(--bb-color-card-border);
+  border-radius: var(--bb-radius-btn);
+  background: var(--bb-color-card-bg);
+  font-size: var(--bb-font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--bb-transition), background var(--bb-transition), color var(--bb-transition);
+  position: relative;
+}
+
+.bb-wizard-step-btn.is-active {
+  border-color: var(--bb-color-accent);
+  background: var(--bb-color-accent);
+  color: #fff;
+}
+
+.bb-wizard-step-btn.is-complete {
+  border-color: var(--bb-color-success);
+  background: color-mix(in srgb, var(--bb-color-success) 10%, white);
+}
+
+.bb-wizard-step-btn__number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  font-size: var(--bb-font-size-xs);
+  font-weight: 800;
+}
+
+.bb-wizard-step-btn__check { display: none; }
+.bb-wizard-step-btn.is-complete .bb-wizard-step-btn__check { display: inline; }
+.bb-wizard-step-btn.is-complete .bb-wizard-step-btn__number { display: none; }
+
+.bb-wizard-progress-text {
+  font-size: var(--bb-font-size-sm);
+  color: var(--bb-color-text-muted);
+  margin-block-start: 0.5rem;
+}
+
+/* ── Main layout ───────────────────────────────────────────────────────── */
+.bb-layout {
+  display: grid;
+  grid-template-columns: 1fr var(--bb-sidebar-width);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@container (max-width: 900px) {
+  .bb-layout {
+    grid-template-columns: 1fr;
+  }
+  .bb-sidebar {
+    display: none;
+  }
+}
+
+/* ── Search bar ────────────────────────────────────────────────────────── */
+.bb-search-bar {
+  position: relative;
+  margin-block-end: 1rem;
+}
+
+.bb-search-input {
+  width: 100%;
+  padding-block: 0.6rem;
+  padding-inline: 2.5rem 0.75rem;
+  border: 1.5px solid var(--bb-color-card-border);
+  border-radius: var(--bb-radius-btn);
+  font-size: var(--bb-font-size-base);
+  background: var(--bb-color-card-bg);
+  color: var(--bb-color-text);
+  outline-offset: 2px;
+  transition: border-color var(--bb-transition);
+}
+
+.bb-search-input:focus { border-color: var(--bb-color-accent); }
+
+.bb-search-icon {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0.65rem;
+  transform: translateY(-50%);
+  color: var(--bb-color-text-muted);
+  pointer-events: none;
+  display: flex;
+}
+
+/* ── Collection tabs ───────────────────────────────────────────────────── */
+.bb-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-block-end: 1rem;
+  border-block-end: 2px solid var(--bb-color-card-border);
+  padding-block-end: 0.75rem;
+}
+
+.bb-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 1rem;
+  border: 1.5px solid var(--bb-color-card-border);
+  border-radius: var(--bb-radius-btn);
+  background: transparent;
+  font-size: var(--bb-font-size-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--bb-transition);
+  color: var(--bb-color-text-muted);
+}
+
+.bb-tab:hover,
+.bb-tab:focus-visible {
+  border-color: var(--bb-color-accent);
+  color: var(--bb-color-primary);
+}
+
+.bb-tab.is-active {
+  background: var(--bb-color-primary);
+  border-color: var(--bb-color-primary);
+  color: #fff;
+}
+
+.bb-tab__icon { font-size: 1.1em; }
+
+/* ── Collections wrapper ───────────────────────────────────────────────── */
+.bb-collections-wrapper { position: relative; }
+
+/* ── Panel / step panel ────────────────────────────────────────────────── */
+.bb-panel { display: none; }
+.bb-panel.is-active { display: block; }
+
+/* ── Wizard step panels ────────────────────────────────────────────────── */
+.bundle-builder--wizard .bb-collections-wrapper { overflow: hidden; }
+
+.bb-step-panel {
+  display: none;
+}
+
+.bb-step-panel.is-active {
+  display: block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-step-panel.is-active[data-animation="slide"] {
+    animation: slideInStep 0.3s ease;
+  }
+  .bb-step-panel.is-active[data-animation="fade"] {
+    animation: fadeInStep 0.35s ease;
+  }
+  .bb-step-panel.is-active[data-animation="scale"] {
+    animation: scaleInStep 0.3s ease;
+  }
+}
+
+@keyframes slideInStep {
+  from { transform: translateX(2rem); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+
+@keyframes slideInStepRtl {
+  from { transform: translateX(-2rem); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+@keyframes fadeInStep {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleInStep {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-0.5rem); opacity: 0; }
+  to   { transform: translateY(0);       opacity: 1; }
+}
+
+/* ── Step header ───────────────────────────────────────────────────────── */
+.bb-step-header { margin-block-end: 1rem; }
+.bb-step-title { font-size: 1.2rem; font-weight: 700; margin: 0 0 0.25rem; }
+.bb-step-description { font-size: var(--bb-font-size-sm); color: var(--bb-color-text-muted); margin: 0; }
+
+/* ── Collection hero ───────────────────────────────────────────────────── */
+.bb-collection-hero { margin-block-end: 1rem; border-radius: var(--bb-radius-card); overflow: hidden; }
+.bb-collection-hero__img { width: 100%; height: 180px; object-fit: cover; display: block; }
+
+/* ── Product grid ──────────────────────────────────────────────────────── */
+.bb-product-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--bb-cols-desktop, 3), 1fr);
+  gap: 1rem;
+}
+
+@container (max-width: 700px) {
+  .bb-product-grid {
+    grid-template-columns: repeat(var(--bb-cols-mobile, 2), 1fr);
+  }
+}
+
+@container (max-width: 380px) {
+  .bb-product-grid { grid-template-columns: 1fr; }
+}
+
+.bb-empty-collection {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: var(--bb-color-text-muted);
+  padding: 2rem;
+}
+
+/* ── Product card ──────────────────────────────────────────────────────── */
+.bb-product-card {
+  background: var(--bb-color-card-bg);
+  border: 2px solid var(--bb-color-card-border);
+  border-radius: var(--bb-radius-card);
+  overflow: hidden;
+  transition: border-color var(--bb-transition), box-shadow var(--bb-transition), transform var(--bb-transition);
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  position: relative;
+}
+
+.bb-product-card:hover,
+.bb-product-card:focus-visible {
+  border-color: var(--bb-color-card-hover);
+  box-shadow: var(--bb-shadow-card-hover);
+  outline: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-product-card:hover { transform: translateY(-2px); }
+}
+
+.bb-product-card.is-selected {
+  border-color: var(--bb-color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bb-color-accent) 25%, transparent);
+}
+
+.bb-product-card.is-required {
+  border-color: var(--bb-color-required);
+}
+
+.bb-product-card.is-sold-out {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* card image */
+.bb-product-card__image-wrap {
+  position: relative;
+  aspect-ratio: 1;
+  background: #f3f3f3;
+  overflow: hidden;
+}
+
+.bb-product-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.bb-product-card:hover .bb-product-card__img { transform: scale(1.04); }
+
+.bb-product-card__no-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%; height: 100%;
+  color: var(--bb-color-text-muted);
+}
+.bb-product-card__no-image svg { width: 3rem; height: 3rem; }
+
+.bb-product-card__sold-out {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,.45);
+  color: #fff;
+  font-weight: 700;
+  font-size: var(--bb-font-size-sm);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.bb-product-card__required-badge {
+  position: absolute;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 0.5rem;
+  background: var(--bb-color-required);
+  color: #fff;
+  font-size: var(--bb-font-size-xs);
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bb-product-card__quick-view {
+  position: absolute;
+  inset-block-end: 0.5rem;
+  inset-inline-end: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: rgba(255,255,255,.9);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition: opacity var(--bb-transition), transform var(--bb-transition);
+}
+
+.bb-product-card:hover .bb-product-card__quick-view,
+.bb-product-card:focus-within .bb-product-card__quick-view {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* card info */
+.bb-product-card__info {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+}
+
+.bb-product-card__vendor {
+  font-size: var(--bb-font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--bb-color-text-muted);
+  margin: 0;
+}
+
+.bb-product-card__title {
+  font-size: var(--bb-font-size-sm);
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.bb-product-card__price-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.bb-product-card__price {
+  font-weight: 700;
+  color: var(--bb-color-primary);
+}
+
+.bb-product-card__compare-price {
+  font-size: var(--bb-font-size-xs);
+  color: var(--bb-color-text-muted);
+}
+
+.bb-product-card__variant-select-wrap { margin-block-start: 0.25rem; }
+
+.bb-product-card__variant-select {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1.5px solid var(--bb-color-card-border);
+  border-radius: 6px;
+  font-size: var(--bb-font-size-xs);
+  background: var(--bb-color-bg);
+  color: var(--bb-color-text);
+  cursor: pointer;
+}
+
+/* card actions */
+.bb-product-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-block-start: auto;
+  padding-block-start: 0.4rem;
+}
+
+.bb-product-card__add-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding-block: 0.45rem;
+  border: 2px solid var(--bb-color-accent);
+  border-radius: var(--bb-radius-btn);
+  background: transparent;
+  color: var(--bb-color-accent);
+  font-size: var(--bb-font-size-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--bb-transition), color var(--bb-transition);
+}
+
+.bb-product-card__add-btn:hover:not(:disabled) {
+  background: var(--bb-color-accent);
+  color: #fff;
+}
+
+.bb-product-card__add-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--bb-color-disabled);
+  color: var(--bb-color-disabled);
+}
+
+.bb-product-card__qty-btn {
+  width: 2rem; height: 2rem;
+  border-radius: 50%;
+  border: 2px solid var(--bb-color-accent);
+  background: transparent;
+  color: var(--bb-color-accent);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--bb-transition), color var(--bb-transition);
+}
+
+.bb-product-card__qty-btn:hover { background: var(--bb-color-accent); color: #fff; }
+
+.bb-product-card__qty-display {
+  min-width: 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Wizard controls ───────────────────────────────────────────────────── */
+.bb-wizard-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-block-start: 1.5rem;
+  gap: 1rem;
+}
+
+.bb-wizard-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.5rem;
+  border-radius: var(--bb-radius-btn);
+  border: 2px solid var(--bb-color-primary);
+  background: transparent;
+  font-size: var(--bb-font-size-base);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--bb-transition);
+  color: var(--bb-color-primary);
+}
+
+.bb-wizard-btn:hover:not(:disabled) {
+  background: var(--bb-color-primary);
+  color: #fff;
+}
+
+.bb-wizard-btn--next {
+  margin-inline-start: auto;
+  background: var(--bb-color-primary);
+  color: #fff;
+}
+
+.bb-wizard-btn--next:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bb-color-primary) 80%, white);
+}
+
+.bb-wizard-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Sidebar ───────────────────────────────────────────────────────────── */
+.bb-sidebar {
+  position: sticky;
+  top: 1.5rem;
+  background: var(--bb-color-card-bg);
+  border: 1.5px solid var(--bb-color-card-border);
+  border-radius: var(--bb-radius-card);
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: var(--bb-shadow-card);
+}
+
+/* progress */
+.bb-progress-wrap { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.bb-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--bb-font-size-sm);
+  font-weight: 600;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.bb-progress-bar {
+  height: 8px;
+  background: var(--bb-color-progress-bg);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.bb-progress-fill {
+  height: 100%;
+  background: var(--bb-color-progress-fill);
+  border-radius: 100px;
+  transition: width 0.4s ease;
+}
+
+.bb-progress-hint {
+  font-size: var(--bb-font-size-xs);
+  color: var(--bb-color-text-muted);
+  margin: 0;
+}
+
+/* active discount */
+.bb-active-discount {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: color-mix(in srgb, var(--bb-color-tier-1) 12%, white);
+  border: 1.5px solid var(--bb-color-tier-1);
+  border-radius: var(--bb-radius-btn);
+  font-weight: 700;
+  font-size: var(--bb-font-size-sm);
+  color: color-mix(in srgb, var(--bb-color-tier-1) 80%, black);
+}
+
+.bb-next-tier-hint {
+  font-size: var(--bb-font-size-xs);
+  color: var(--bb-color-text-muted);
+  text-align: center;
+  padding: 0.25rem 0;
+}
+
+/* selection list */
+.bb-selection-summary__heading {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  padding-block-end: 0.5rem;
+  border-block-end: 1.5px solid var(--bb-color-card-border);
+}
+
+.bb-selection-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 260px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.bb-selection-empty {
+  font-size: var(--bb-font-size-sm);
+  color: var(--bb-color-text-muted);
+  text-align: center;
+  padding-block: 1rem;
+}
+
+.bb-selection-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: var(--bb-font-size-sm);
+  animation: slideDown 0.2s ease;
+}
+
+.bb-selection-item__img {
+  width: 40px; height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+  background: #f3f3f3;
+}
+
+.bb-selection-item__info { flex: 1; min-width: 0; }
+.bb-selection-item__title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-selection-item__price { font-size: var(--bb-font-size-xs); color: var(--bb-color-text-muted); }
+
+.bb-selection-item__qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.bb-selection-item__qty-btn {
+  width: 1.5rem; height: 1.5rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--bb-color-card-border);
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: all var(--bb-transition);
+}
+
+.bb-selection-item__qty-btn:hover { border-color: var(--bb-color-accent); color: var(--bb-color-accent); }
+.bb-selection-item__qty { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 1.5ch; text-align: center; }
+
+/* price summary */
+.bb-price-summary { border-block-start: 1.5px solid var(--bb-color-card-border); padding-block-start: 0.75rem; }
+.bb-price-row { display: flex; justify-content: space-between; align-items: center; font-size: var(--bb-font-size-sm); padding-block: 0.2rem; }
+.bb-price-row--total { font-size: 1.1rem; font-weight: 700; margin-block-start: 0.25rem; }
+.bb-price-row--savings { color: var(--bb-color-success); }
+.bb-savings-amount { font-weight: 700; }
+
+/* CTA */
+.bb-cta-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.5rem;
+  background: var(--bb-color-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--bb-radius-btn);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: background var(--bb-transition), transform var(--bb-transition), opacity var(--bb-transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.bb-cta-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,.08), transparent);
+  pointer-events: none;
+}
+
+.bb-cta-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bb-color-primary) 80%, white);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-cta-btn:hover:not(:disabled) { transform: translateY(-1px); }
+}
+
+.bb-cta-btn:disabled,
+.bb-cta-btn[aria-disabled="true"] {
+  background: var(--bb-color-disabled);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.bb-cta-btn.is-loading .bb-cta-btn__label { opacity: 0; }
+
+.bb-spinner {
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 3px solid rgba(255,255,255,.3);
+  border-block-start-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.bb-cta-hint {
+  font-size: var(--bb-font-size-xs);
+  text-align: center;
+  color: var(--bb-color-text-muted);
+  margin: 0;
+  min-height: 1.2em;
+}
+
+.bb-cta-hint.is-error { color: var(--bb-color-required); }
+.bb-cta-hint.is-success { color: var(--bb-color-success); }
+
+.bb-guarantee-text {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  font-size: var(--bb-font-size-xs);
+  color: var(--bb-color-text-muted);
+  margin: 0;
+}
+
+/* ── Mobile drawer ─────────────────────────────────────────────────────── */
+.bb-mobile-drawer {
+  display: none;
+  position: fixed;
+  inset-block-end: 0;
+  inset-inline: 0;
+  background: var(--bb-color-card-bg);
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 32px rgba(0,0,0,.15);
+  z-index: 100;
+  transition: transform 0.35s ease;
+}
+
+@container (max-width: 900px) {
+  .bb-mobile-drawer { display: block; }
+}
+
+.bb-mobile-drawer__handle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-block-end: 1.5px solid var(--bb-color-card-border);
+}
+
+.bb-mobile-drawer__pill {
+  display: block;
+  width: 2.5rem; height: 4px;
+  background: var(--bb-color-card-border);
+  border-radius: 100px;
+  position: absolute;
+  inset-block-start: 0.5rem;
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
+}
+
+.bb-mobile-drawer__preview {
+  flex: 1;
+  font-size: var(--bb-font-size-sm);
+  font-weight: 600;
+}
+
+.bb-mobile-drawer__arrow { transition: transform var(--bb-transition); }
+.bb-mobile-drawer.is-open .bb-mobile-drawer__arrow { transform: rotate(180deg); }
+
+.bb-mobile-drawer__body {
+  display: none;
+  padding: 1rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.bb-mobile-drawer.is-open .bb-mobile-drawer__body { display: block; }
+
+/* ── Quick view dialog ─────────────────────────────────────────────────── */
+.bb-quick-view-dialog {
+  border: none;
+  border-radius: var(--bb-radius-card);
+  padding: 0;
+  max-width: min(90vw, 700px);
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  overflow: hidden;
+}
+
+.bb-quick-view-dialog::backdrop {
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px);
+}
+
+.bb-quick-view-close {
+  position: absolute;
+  inset-block-start: 0.75rem;
+  inset-inline-end: 0.75rem;
+  width: 2rem; height: 2rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--bb-color-card-border);
+  background: var(--bb-color-card-bg);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.bb-quick-view-content { min-height: 200px; }
+
+.bb-quick-view-content .bb-quick-view-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+}
+
+.bb-quick-view-content .bb-spinner { border-color: rgba(0,0,0,.2); border-block-start-color: var(--bb-color-primary); }
+
+.bb-quick-view-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.bb-quick-view-inner img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.bb-quick-view-inner__info {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ── RTL adjustments ───────────────────────────────────────────────────── */
+[dir="rtl"] .bb-search-icon { inset-inline-start: auto; inset-inline-end: 0.65rem; }
+[dir="rtl"] .bb-search-input { padding-inline: 0.75rem 2.5rem; }
+
+/* ── Focus visible ring ────────────────────────────────────────────────── */
+:is(.bb-tab, .bb-product-card__add-btn, .bb-cta-btn, .bb-wizard-btn, .bb-product-card):focus-visible {
+  outline: 3px solid var(--bb-color-accent);
+  outline-offset: 2px;
+}
+
+/* ── Print: hide interactive chrome ───────────────────────────────────── */
+@media print {
+  .bb-mobile-drawer,
+  .bb-search-bar,
+  .bb-tabs,
+  .bb-wizard-controls,
+  .bb-cta-btn { display: none !important; }
+}
+</style>
+
+<script>
+(() => {
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   BundleBuilder — Web Component
+   Al Moallem Mill · Kuwait · KWD · Arabic + English
+   ═══════════════════════════════════════════════════════════════════════ */
+
+class BundleBuilder extends HTMLElement {
+
+  /* ── Private fields ──────────────────────────────────────────────── */
+  #selections   = new Map();   // variantId → { productId, title, price, qty, img, panelIndex, isRequired, handle }
+  #tiers        = [];          // [{ qty, discount, label, color }]
+  #freeGift     = null;        // { id, title, image, threshold } | null
+  #freeGiftAdded = false;
+  #minQty       = 1;
+  #maxQty       = 6;
+  #bundleType   = 'mix_match';
+  #dir          = 'ltr';
+  #locale       = 'en';
+  #currency     = 'KWD';
+  #wizardStep   = 1;
+  #wizardTotal  = 1;
+  #wizardAnim   = 'slide';
+  #filterTags   = [];
+  #filterVendors = [];
+  #inventoryCache = new Map();  // handle → available (boolean)
+  #timerInterval  = null;
+  #searchDebounce = null;
+  #sectionId    = '';
+  #analyticsQueue = [];
+
+  /* ── Lifecycle ───────────────────────────────────────────────────── */
+  connectedCallback() {
+    this.#sectionId   = this.dataset.sectionId || this.closest('[data-section-id]')?.dataset.sectionId || '';
+    this.#bundleType  = this.dataset.bundleType || 'mix_match';
+    this.#minQty      = parseInt(this.dataset.min, 10) || 1;
+    this.#maxQty      = parseInt(this.dataset.max, 10) || 6;
+    this.#dir         = this.dataset.dir || document.documentElement.dir || 'ltr';
+    this.#locale      = this.dataset.locale || 'en';
+    this.#currency    = this.dataset.currency || 'KWD';
+    this.#wizardAnim  = this.dataset.wizardAnimation || 'slide';
+
+    try { this.#tiers = JSON.parse(decodeURIComponent(this.dataset.tiers || '[]')); } catch { this.#tiers = []; }
+    try { this.#freeGift = JSON.parse(decodeURIComponent(this.dataset.freeGift || 'null')); } catch { this.#freeGift = null; }
+
+    const tagStr    = this.dataset.filterTags    || '';
+    const vendorStr = this.dataset.filterVendors || '';
+    this.#filterTags    = tagStr.split(',').map(s => s.trim()).filter(Boolean);
+    this.#filterVendors = vendorStr.split(',').map(s => s.trim()).filter(Boolean);
+
+    // Count wizard panels
+    const panels = this.querySelectorAll('.bb-step-panel, .bb-panel');
+    this.#wizardTotal = panels.length;
+
+    this.#bindEvents();
+    this.#initRequired();
+    this.#renderTiers();
+    this.#updateUI();
+    this.#initTimer();
+    this.#initSearch();
+    this.#prefetchInventory();
+    this.#initMobileDrawer();
+    this.#announceReady();
+
+    // Wizard step panel animations
+    if (this.#bundleType === 'wizard') {
+      this.#syncWizardStepPanels();
+    }
+  }
+
+  disconnectedCallback() {
+    if (this.#timerInterval) clearInterval(this.#timerInterval);
+  }
+
+  /* ── Event binding ───────────────────────────────────────────────── */
+  #bindEvents() {
+    // Delegate all clicks/changes within the component
+    this.addEventListener('click',  e => this.#onClick(e));
+    this.addEventListener('change', e => this.#onChange(e));
+    this.addEventListener('keydown', e => this.#onKeydown(e));
+
+    // Mobile drawer handle (outside bundle-builder element, in same section)
+    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
+    if (section) {
+      const handle = section.querySelector('.bb-mobile-drawer__handle');
+      if (handle) {
+        handle.addEventListener('click', () => this.#toggleDrawer());
+        handle.addEventListener('keydown', e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.#toggleDrawer(); }
+        });
+      }
+    }
+
+    // Quick view dialog close on backdrop click
+    const dialog = this.querySelector('.bb-quick-view-dialog');
+    if (dialog) {
+      dialog.addEventListener('click', e => {
+        if (e.target === dialog) dialog.close();
+      });
+    }
+  }
+
+  #onClick(e) {
+    const t = e.target.closest('[data-action]');
+    if (t) {
+      e.stopPropagation();
+      const action    = t.dataset.action;
+      const variantId = parseInt(t.dataset.variantId, 10);
+      const productId = parseInt(t.dataset.productId, 10);
+      if (action === 'add')    this.#addToSelection(variantId, productId, t);
+      if (action === 'remove') this.#removeFromSelection(variantId, productId, t);
+      return;
+    }
+
+    // Tab click
+    const tab = e.target.closest('.bb-tab');
+    if (tab) { this.#switchTab(parseInt(tab.dataset.tab, 10)); return; }
+
+    // Wizard step button
+    const wizBtn = e.target.closest('.bb-wizard-step-btn');
+    if (wizBtn) { this.#goToWizardStep(parseInt(wizBtn.dataset.step, 10)); return; }
+
+    // Wizard next/prev
+    if (e.target.closest(`#bb-next-${this.#sectionId}`)) { this.#wizardNext(); return; }
+    if (e.target.closest(`#bb-prev-${this.#sectionId}`)) { this.#wizardPrev(); return; }
+
+    // CTA
+    if (e.target.closest(`#bb-cta-${this.#sectionId}`) || e.target.closest('.bb-cta-btn--drawer')) {
+      this.#submitBundle(); return;
+    }
+
+    // Quick view
+    const qvBtn = e.target.closest('.bb-product-card__quick-view');
+    if (qvBtn) { this.#openQuickView(qvBtn.dataset.productHandle); return; }
+
+    // Close quick view
+    if (e.target.closest('.bb-quick-view-close')) {
+      this.querySelector('.bb-quick-view-dialog')?.close(); return;
+    }
+
+    // Sidebar qty buttons
+    const sideQtyBtn = e.target.closest('.bb-selection-item__qty-btn');
+    if (sideQtyBtn) {
+      const varId = parseInt(sideQtyBtn.closest('.bb-selection-item').dataset.variantId, 10);
+      if (sideQtyBtn.dataset.dir === 'up')   this.#incrementSelection(varId);
+      if (sideQtyBtn.dataset.dir === 'down') this.#decrementSelection(varId);
+      return;
+    }
+
+    // Card click — toggle add (if single-select card, not on button)
+    const card = e.target.closest('.bb-product-card');
+    if (card && !e.target.closest('button') && !e.target.closest('select')) {
+      const variantId = parseInt(card.dataset.variantId, 10);
+      const productId = parseInt(card.dataset.productId, 10);
+      const available = card.dataset.available === 'true';
+      if (!available) return;
+      if (this.#selections.has(variantId)) {
+        this.#decrementSelection(variantId);
+      } else {
+        this.#addToSelection(variantId, productId, card);
+      }
+    }
+  }
+
+  #onChange(e) {
+    // Variant select change — update card's data-variant-id and price
+    const sel = e.target.closest('.bb-product-card__variant-select');
+    if (sel) {
+      const card      = sel.closest('.bb-product-card');
+      const opt       = sel.selectedOptions[0];
+      const newVarId  = parseInt(sel.value, 10);
+      const oldVarId  = parseInt(card.dataset.variantId, 10);
+      const newPrice  = parseInt(opt.dataset.price, 10);
+      const available = opt.dataset.available === 'true';
+
+      // If old variant was selected, swap it
+      if (this.#selections.has(oldVarId)) {
+        const old = this.#selections.get(oldVarId);
+        this.#selections.delete(oldVarId);
+        this.#selections.set(newVarId, { ...old, variantId: newVarId, price: newPrice });
+      }
+
+      card.dataset.variantId = newVarId;
+      card.dataset.price     = newPrice;
+      card.dataset.available = available;
+
+      const addBtn = card.querySelector('[data-action="add"]');
+      if (addBtn) {
+        addBtn.dataset.variantId = newVarId;
+        addBtn.disabled = !available;
+        addBtn.setAttribute('aria-disabled', String(!available));
+      }
+      const remBtn = card.querySelector('[data-action="remove"]');
+      if (remBtn) remBtn.dataset.variantId = newVarId;
+
+      const priceEl = card.querySelector('.bb-product-card__price');
+      if (priceEl) priceEl.textContent = this.#formatMoney(newPrice);
+
+      this.#updateUI();
+    }
+  }
+
+  #onKeydown(e) {
+    const card = e.target.closest('.bb-product-card');
+    if (card && (e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      card.querySelector('[data-action="add"]')?.click();
+    }
+  }
+
+  /* ── Selection management ────────────────────────────────────────── */
+  #addToSelection(variantId, productId, source) {
+    if (!variantId || !productId) return;
+    const total = this.#totalQuantity();
+
+    if (total >= this.#maxQty) {
+      this.#showHint(this.#t('bundle_full', `Bundle full! Max ${this.#maxQty} items.`), 'error');
+      return;
+    }
+
+    const card    = source.closest('.bb-product-card') || this.querySelector(`[data-variant-id="${variantId}"]`);
+    const title   = card?.dataset.title   || '';
+    const price   = parseInt(card?.dataset.price || '0', 10);
+    const img     = card?.querySelector('.bb-product-card__img')?.src || '';
+    const handle  = card?.dataset.handle  || '';
+    const panel   = parseInt(card?.dataset.panel || '1', 10);
+    const isReq   = card?.dataset.required === 'true';
+
+    if (this.#selections.has(variantId)) {
+      const entry = this.#selections.get(variantId);
+      this.#selections.set(variantId, { ...entry, qty: entry.qty + 1 });
+    } else {
+      this.#selections.set(variantId, { variantId, productId, title, price, qty: 1, img, handle, panelIndex: panel, isRequired: isReq });
+    }
+
+    this.#updateUI();
+    this.#track('bundle_product_add', { variantId, title, price });
+    this.#srAnnounce(`${title} ${this.#t('added_to_bundle', 'added to bundle')}`);
+  }
+
+  #removeFromSelection(variantId, productId, source) {
+    if (!this.#selections.has(variantId)) return;
+    const entry = this.#selections.get(variantId);
+    if (entry.isRequired) {
+      this.#showHint(this.#t('required_item', 'This item is required in the bundle.'), 'error');
+      return;
+    }
+    if (entry.qty > 1) {
+      this.#selections.set(variantId, { ...entry, qty: entry.qty - 1 });
+    } else {
+      this.#selections.delete(variantId);
+    }
+    this.#updateUI();
+    this.#track('bundle_product_remove', { variantId, title: entry.title });
+    this.#srAnnounce(`${entry.title} ${this.#t('removed_from_bundle', 'removed from bundle')}`);
+  }
+
+  #incrementSelection(variantId) {
+    if (!this.#selections.has(variantId)) return;
+    if (this.#totalQuantity() >= this.#maxQty) { this.#showHint(this.#t('bundle_full', 'Bundle full!'), 'error'); return; }
+    const entry = this.#selections.get(variantId);
+    this.#selections.set(variantId, { ...entry, qty: entry.qty + 1 });
+    this.#updateUI();
+  }
+
+  #decrementSelection(variantId) {
+    if (!this.#selections.has(variantId)) return;
+    const entry = this.#selections.get(variantId);
+    if (entry.isRequired) { this.#showHint(this.#t('required_item', 'Required item cannot be removed.'), 'error'); return; }
+    if (entry.qty > 1) {
+      this.#selections.set(variantId, { ...entry, qty: entry.qty - 1 });
+    } else {
+      this.#selections.delete(variantId);
+    }
+    this.#updateUI();
+  }
+
+  /* ── Required products init ──────────────────────────────────────── */
+  #initRequired() {
+    this.querySelectorAll('.bb-product-card[data-required="true"]').forEach(card => {
+      const variantId = parseInt(card.dataset.variantId, 10);
+      const productId = parseInt(card.dataset.productId, 10);
+      if (!this.#selections.has(variantId)) {
+        this.#addToSelection(variantId, productId, card);
+      }
+    });
+  }
+
+  /* ── Tiered discount ─────────────────────────────────────────────── */
+  #activeTier() {
+    const total = this.#totalQuantity();
+    let active = null;
+    for (const tier of this.#tiers) {
+      if (total >= tier.qty) active = tier;
+    }
+    return active;
+  }
+
+  #nextTier() {
+    const total = this.#totalQuantity();
+    return this.#tiers.find(t => t.qty > total) || null;
+  }
+
+  #renderTiers() {
+    const tierBadges = this.querySelectorAll('.bb-tier-badge');
+    const total = this.#totalQuantity();
+    const active = this.#activeTier();
+    const next   = this.#nextTier();
+
+    tierBadges.forEach(badge => {
+      const qty = parseInt(badge.dataset.qty, 10);
+      badge.classList.remove('is-active', 'is-next');
+      if (active && qty === active.qty) badge.classList.add('is-active');
+      else if (next && qty === next.qty) badge.classList.add('is-next');
+    });
+
+    // Sidebar active discount display
+    const discEl = this.querySelector('.bb-active-discount');
+    const nextEl  = this.querySelector('.bb-next-tier-hint');
+
+    if (discEl) {
+      if (active) {
+        discEl.hidden = false;
+        const textEl = discEl.querySelector('.bb-active-discount__text');
+        if (textEl) textEl.textContent = active.label || `${active.discount}% ${this.#t('off', 'off')}`;
+        discEl.style.setProperty('--tier-active-color', active.color || 'var(--bb-color-tier-1)');
+        discEl.style.borderColor = active.color || '';
+      } else {
+        discEl.hidden = true;
+      }
+    }
+
+    if (nextEl) {
+      if (next) {
+        nextEl.hidden = false;
+        const needed = next.qty - total;
+        const textEl = nextEl.querySelector('.bb-next-tier-hint__text');
+        if (textEl) {
+          textEl.textContent = `${this.#t('add_more', 'Add')} ${needed} ${this.#t('more_for', 'more for')} ${next.discount}% ${this.#t('off', 'off')}`;
+        }
+      } else {
+        nextEl.hidden = true;
+      }
+    }
+  }
+
+  /* ── Totals ──────────────────────────────────────────────────────── */
+  #totalQuantity() {
+    let total = 0;
+    for (const { qty } of this.#selections.values()) total += qty;
+    return total;
+  }
+
+  #originalTotal() {
+    let sum = 0;
+    for (const { price, qty } of this.#selections.values()) sum += price * qty;
+    return sum;
+  }
+
+  #discountedTotal() {
+    const tier = this.#activeTier();
+    const orig = this.#originalTotal();
+    if (!tier) return orig;
+    return Math.round(orig * (1 - tier.discount / 100));
+  }
+
+  /* ── Free gift ───────────────────────────────────────────────────── */
+  #checkFreeGift() {
+    if (!this.#freeGift) return;
+    const total = this.#totalQuantity();
+    const banner = this.querySelector('.bb-free-gift-banner');
+
+    if (total >= this.#freeGift.threshold) {
+      if (banner) banner.hidden = false;
+      if (!this.#freeGiftAdded) {
+        this.#freeGiftAdded = true;
+        // Auto-add free gift variant to selections at price 0
+        const giftId = this.#freeGift.id;
+        this.#selections.set(giftId, {
+          variantId: giftId,
+          productId: giftId,
+          title: `${this.#freeGift.title} (${this.#t('free', 'Free')})`,
+          price: 0,
+          qty: 1,
+          img: this.#freeGift.image,
+          panelIndex: 0,
+          isRequired: true,
+          isGift: true
+        });
+        this.#srAnnounce(this.#t('free_gift_unlocked', "Free gift unlocked!"));
+      }
+    } else {
+      if (banner) banner.hidden = true;
+      if (this.#freeGiftAdded) {
+        this.#freeGiftAdded = false;
+        this.#selections.delete(this.#freeGift.id);
+      }
+    }
+  }
+
+  /* ── Main UI update ──────────────────────────────────────────────── */
+  #updateUI() {
+    this.#checkFreeGift();
+    this.#renderTiers();
+    this.#renderProgress();
+    this.#renderSelectionList();
+    this.#renderPriceSummary();
+    this.#renderCardStates();
+    this.#renderCTA();
+    this.#renderMobileDrawerPreview();
+
+    if (this.#bundleType === 'wizard') {
+      this.#renderWizardControls();
+    }
+  }
+
+  /* ── Progress bar ────────────────────────────────────────────────── */
+  #renderProgress() {
+    const total = this.#totalQuantity();
+    const pct   = Math.min(100, (total / this.#maxQty) * 100);
+
+    const fill    = this.querySelector('.bb-progress-fill');
+    const bar     = this.querySelector('.bb-progress-bar');
+    const current = this.querySelector('.bb-progress-current');
+    const remaining = this.querySelector('.bb-progress-remaining');
+    const hint    = this.querySelector('.bb-progress-hint');
+
+    if (fill)  { fill.style.width = `${pct}%`; }
+    if (bar)   { bar.setAttribute('aria-valuenow', total); }
+    if (current) current.textContent = total;
+    if (remaining) remaining.textContent = Math.max(0, this.#maxQty - total);
+
+    if (hint && total >= this.#maxQty) {
+      hint.textContent = this.#t('bundle_complete', 'Bundle complete! Ready to add to cart.');
+    }
+  }
+
+  /* ── Selection list (sidebar) ────────────────────────────────────── */
+  #renderSelectionList() {
+    const list = this.querySelector('.bb-selection-list');
+    if (!list) return;
+
+    if (this.#selections.size === 0) {
+      list.innerHTML = `<li class="bb-selection-empty">${this.#t('empty_state', 'Your bundle is empty. Start adding products!')}</li>`;
+      return;
+    }
+
+    const items = [];
+    for (const [varId, entry] of this.#selections) {
+      items.push(`
+        <li class="bb-selection-item" data-variant-id="${varId}">
+          <img
+            class="bb-selection-item__img"
+            src="${entry.img || ''}"
+            alt="${this.#escHtml(entry.title)}"
+            loading="lazy"
+            width="40" height="40"
+            onerror="this.style.visibility='hidden'"
+          >
+          <div class="bb-selection-item__info">
+            <div class="bb-selection-item__title">${this.#escHtml(entry.title)}</div>
+            <div class="bb-selection-item__price">${this.#formatMoney(entry.price * entry.qty)}</div>
+          </div>
+          <div class="bb-selection-item__qty-controls">
+            <button class="bb-selection-item__qty-btn" data-dir="down" aria-label="${this.#t('decrease_qty', 'Decrease quantity')}" ${entry.isRequired && entry.qty <= 1 ? 'disabled' : ''}>−</button>
+            <span class="bb-selection-item__qty" aria-label="${this.#t('quantity', 'Quantity')}: ${entry.qty}">${entry.qty}</span>
+            <button class="bb-selection-item__qty-btn" data-dir="up" aria-label="${this.#t('increase_qty', 'Increase quantity')}" ${this.#totalQuantity() >= this.#maxQty ? 'disabled' : ''}>+</button>
+          </div>
+        </li>
+      `);
+    }
+    list.innerHTML = items.join('');
+  }
+
+  /* ── Price summary ───────────────────────────────────────────────── */
+  #renderPriceSummary() {
+    const orig  = this.#originalTotal();
+    const disc  = this.#discountedTotal();
+    const saved = orig - disc;
+    const tier  = this.#activeTier();
+
+    const totalEl   = this.querySelector('.bb-bundle-total');
+    const origRow   = this.querySelector('.bb-price-row--original');
+    const origEl    = this.querySelector('.bb-original-total');
+    const savRow    = this.querySelector('.bb-price-row--savings');
+    const savEl     = this.querySelector('.bb-savings-amount');
+
+    if (totalEl)  totalEl.textContent  = this.#formatMoney(disc);
+    if (origEl)   origEl.textContent   = this.#formatMoney(orig);
+    if (savEl)    savEl.textContent    = `- ${this.#formatMoney(saved)}`;
+
+    const hasSaving = tier && saved > 0;
+    if (origRow)  origRow.hidden = !hasSaving;
+    if (savRow)   savRow.hidden  = !hasSaving;
+  }
+
+  /* ── Card states ─────────────────────────────────────────────────── */
+  #renderCardStates() {
+    const total = this.#totalQuantity();
+    const atMax = total >= this.#maxQty;
+
+    this.querySelectorAll('.bb-product-card').forEach(card => {
+      const varId = parseInt(card.dataset.variantId, 10);
+      const entry = this.#selections.get(varId);
+      const qty   = entry?.qty || 0;
+      const available = card.dataset.available === 'true';
+
+      card.classList.toggle('is-selected', qty > 0);
+
+      const addBtn  = card.querySelector('[data-action="add"]');
+      const remBtn  = card.querySelector('[data-action="remove"]');
+      const qtyDisp = card.querySelector('.bb-product-card__qty-display');
+
+      if (addBtn) {
+        const shouldDisable = !available || (atMax && qty === 0);
+        addBtn.disabled = shouldDisable;
+        addBtn.setAttribute('aria-disabled', String(shouldDisable));
+        if (qty > 0) {
+          addBtn.querySelector('.bb-btn-label').textContent = this.#t('add_more', 'Add More');
+        } else {
+          addBtn.querySelector('.bb-btn-label').textContent = this.#t('add', 'Add');
+        }
+      }
+
+      if (remBtn) {
+        remBtn.hidden = qty === 0;
+        remBtn.disabled = entry?.isRequired && qty <= 1;
+      }
+
+      if (qtyDisp) {
+        qtyDisp.hidden = qty === 0;
+        qtyDisp.textContent = qty;
+        qtyDisp.setAttribute('aria-label', `${this.#t('quantity', 'Quantity')}: ${qty}`);
+      }
+    });
+  }
+
+  /* ── CTA state ───────────────────────────────────────────────────── */
+  #renderCTA() {
+    const total    = this.#totalQuantity();
+    const ready    = total >= this.#minQty;
+    const ctaBtn   = this.querySelector(`#bb-cta-${this.#sectionId}`);
+    const drawerCta = this.closest('.bundle-builder-section')?.querySelector('.bb-cta-btn--drawer');
+
+    [ctaBtn, drawerCta].forEach(btn => {
+      if (!btn) return;
+      btn.disabled = !ready;
+      btn.setAttribute('aria-disabled', String(!ready));
+    });
+
+    const hint = this.querySelector('.bb-cta-hint');
+    if (hint && !hint.classList.contains('is-error') && !hint.classList.contains('is-success')) {
+      if (!ready) {
+        const needed = this.#minQty - total;
+        hint.textContent = `${this.#t('add_more', 'Add')} ${needed} ${this.#t('more_items', 'more item(s) to proceed')}`;
+      } else {
+        hint.textContent = '';
+      }
+    }
+  }
+
+  /* ── Wizard ──────────────────────────────────────────────────────── */
+  #syncWizardStepPanels() {
+    const panels = this.querySelectorAll('.bb-step-panel');
+    const anim   = this.#wizardAnim;
+    panels.forEach(p => p.dataset.animation = anim);
+  }
+
+  #goToWizardStep(step) {
+    if (step < 1 || step > this.#wizardTotal) return;
+    const canAdvance = this.#wizardStepIsComplete(this.#wizardStep);
+    if (step > this.#wizardStep && !canAdvance) {
+      this.#showHint(this.#t('complete_step', 'Complete this step first.'), 'error');
+      return;
+    }
+
+    const panels   = this.querySelectorAll('.bb-step-panel, .bb-panel');
+    const stepBtns = this.querySelectorAll('.bb-wizard-step-btn');
+
+    panels.forEach((p, i) => p.classList.toggle('is-active', i + 1 === step));
+    stepBtns.forEach(btn => {
+      const n = parseInt(btn.dataset.step, 10);
+      btn.classList.toggle('is-active', n === step);
+      btn.setAttribute('aria-selected', String(n === step));
+      btn.classList.toggle('is-complete', n < step);
+    });
+
+    this.#wizardStep = step;
+
+    // Update progress text
+    const curr = this.querySelector('.bb-wizard-step-current');
+    if (curr) curr.textContent = step;
+
+    this.#renderWizardControls();
+    this.#srAnnounce(`${this.#t('step', 'Step')} ${step} ${this.#t('of', 'of')} ${this.#wizardTotal}`);
+  }
+
+  #wizardNext() { this.#goToWizardStep(this.#wizardStep + 1); }
+  #wizardPrev() { this.#goToWizardStep(this.#wizardStep - 1); }
+
+  #wizardStepIsComplete(step) {
+    const panel = this.querySelector(`.bb-step-panel[data-panel="${step}"], .bb-panel[data-panel="${step}"]`);
+    if (!panel) return true;
+    const stepMin = parseInt(panel.dataset.stepMin, 10) || 1;
+    // Count selections belonging to this panel
+    let panelQty = 0;
+    for (const entry of this.#selections.values()) {
+      if (entry.panelIndex === step) panelQty += entry.qty;
+    }
+    return panelQty >= stepMin;
+  }
+
+  #renderWizardControls() {
+    const prevBtn = this.querySelector(`#bb-prev-${this.#sectionId}`);
+    const nextBtn = this.querySelector(`#bb-next-${this.#sectionId}`);
+    if (!prevBtn || !nextBtn) return;
+
+    prevBtn.hidden   = this.#wizardStep <= 1;
+    prevBtn.disabled = this.#wizardStep <= 1;
+
+    const isLast = this.#wizardStep >= this.#wizardTotal;
+    nextBtn.hidden   = isLast;
+    nextBtn.disabled = isLast || !this.#wizardStepIsComplete(this.#wizardStep);
+
+    // On last step, CTA becomes primary action — ensure visibility
+    const ctaBtn = this.querySelector(`#bb-cta-${this.#sectionId}`);
+    if (ctaBtn) {
+      ctaBtn.style.display = isLast ? '' : 'none';
+    }
+  }
+
+  /* ── Cart submission ─────────────────────────────────────────────── */
+  async #submitBundle() {
+    if (this.#totalQuantity() < this.#minQty) return;
+
+    const ctaBtn = this.querySelector(`#bb-cta-${this.#sectionId}`);
+    const spinner = ctaBtn?.querySelector('.bb-cta-btn__spinner');
+    const label   = ctaBtn?.querySelector('.bb-cta-btn__label');
+
+    if (ctaBtn) { ctaBtn.classList.add('is-loading'); ctaBtn.disabled = true; }
+    if (spinner) spinner.hidden = false;
+    if (label)   label.style.opacity = '0';
+
+    const tier = this.#activeTier();
+    const bundleKey = `bundle-${Date.now()}`;
+
+    const items = [];
+    for (const [varId, entry] of this.#selections) {
+      if (entry.isGift) continue; // free gift added separately
+      const props = {
+        _bundle_id:           bundleKey,
+        _bundle_type:         this.#bundleType,
+        _bundle_discount_pct: tier ? String(tier.discount) : '0',
+      };
+      if (entry.panelIndex) props._bundle_step = String(entry.panelIndex);
+
+      items.push({ id: varId, quantity: entry.qty, properties: props });
+    }
+
+    // Add free gift if applicable
+    if (this.#freeGiftAdded && this.#freeGift) {
+      items.push({
+        id: this.#freeGift.id,
+        quantity: 1,
+        properties: { _bundle_id: bundleKey, _bundle_type: 'free_gift', _free_gift: 'true' }
+      });
+    }
+
+    try {
+      const resp = await fetch('/cart/add.js', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        body:    JSON.stringify({ items }),
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ description: 'Unknown error' }));
+        throw new Error(err.description || resp.statusText);
+      }
+
+      this.#track('bundle_add_to_cart', {
+        bundle_type: this.#bundleType,
+        total_qty:   this.#totalQuantity(),
+        total_value: this.#discountedTotal(),
+        discount:    tier?.discount || 0,
+      });
+
+      this.#showHint(this.#t('added_to_cart', 'Bundle added to cart!'), 'success');
+      this.#srAnnounce(this.#t('added_to_cart', 'Bundle added to cart!'));
+
+      // Optional redirect to cart
+      if (this.dataset.redirectToCart === 'true') {
+        window.location.href = '/cart';
+      }
+
+    } catch (err) {
+      this.#showHint(err.message || this.#t('cart_error', 'Something went wrong. Please try again.'), 'error');
+    } finally {
+      if (ctaBtn) { ctaBtn.classList.remove('is-loading'); ctaBtn.disabled = false; }
+      if (spinner) spinner.hidden = true;
+      if (label)   label.style.opacity = '';
+      this.#renderCTA();
+    }
+  }
+
+  /* ── Tab switching ───────────────────────────────────────────────── */
+  #switchTab(tabIndex) {
+    const tabs   = this.querySelectorAll('.bb-tab');
+    const panels = this.querySelectorAll('.bb-panel');
+
+    tabs.forEach(t => {
+      const active = parseInt(t.dataset.tab, 10) === tabIndex;
+      t.classList.toggle('is-active', active);
+      t.setAttribute('aria-selected', String(active));
+    });
+
+    panels.forEach(p => {
+      const active = parseInt(p.dataset.panel, 10) === tabIndex;
+      p.classList.toggle('is-active', active);
+    });
+  }
+
+  /* ── Mobile drawer ───────────────────────────────────────────────── */
+  #initMobileDrawer() {
+    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
+    const drawer  = section?.querySelector('.bb-mobile-drawer');
+    if (drawer) drawer.setAttribute('aria-hidden', 'false');
+  }
+
+  #toggleDrawer() {
+    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
+    const drawer  = section?.querySelector('.bb-mobile-drawer');
+    if (!drawer) return;
+    const isOpen = drawer.classList.toggle('is-open');
+    drawer.setAttribute('aria-hidden', String(!isOpen));
+    if (isOpen) this.#cloneSidebarToDrawer();
+  }
+
+  #cloneSidebarToDrawer() {
+    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
+    const inner   = section?.querySelector('.bb-mobile-drawer__inner');
+    const sidebar = this.querySelector('.bb-selection-summary');
+    if (inner && sidebar) inner.innerHTML = sidebar.outerHTML;
+  }
+
+  #renderMobileDrawerPreview() {
+    const section = document.getElementById(`bundle-builder-${this.#sectionId}`);
+    if (!section) return;
+    const qtyEl   = section.querySelector('.bb-drawer-qty');
+    const totalEl = section.querySelector('.bb-drawer-total');
+    if (qtyEl)   qtyEl.textContent   = this.#totalQuantity();
+    if (totalEl) totalEl.textContent = this.#formatMoney(this.#discountedTotal());
+
+    const drawerCta = section.querySelector('.bb-cta-btn--drawer');
+    if (drawerCta) {
+      const ready = this.#totalQuantity() >= this.#minQty;
+      drawerCta.disabled = !ready;
+      drawerCta.setAttribute('aria-disabled', String(!ready));
+    }
+  }
+
+  /* ── Quick view ──────────────────────────────────────────────────── */
+  async #openQuickView(handle) {
+    const dialog  = this.querySelector('.bb-quick-view-dialog');
+    const content = this.querySelector('.bb-quick-view-content');
+    if (!dialog || !content || !handle) return;
+
+    content.innerHTML = `<div class="bb-quick-view-loading"><div class="bb-spinner"></div></div>`;
+    dialog.showModal?.() || dialog.setAttribute('open', '');
+
+    try {
+      const resp = await fetch(`/products/${handle}?view=json`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!resp.ok) throw new Error('Not found');
+      const html = await resp.text();
+
+      // Fallback: load from products/{handle}.js
+      const jsonResp = await fetch(`/products/${handle}.js`);
+      const data = await jsonResp.json();
+
+      content.innerHTML = `
+        <div class="bb-quick-view-inner">
+          <img
+            src="${data.featured_image || ''}"
+            alt="${this.#escHtml(data.title)}"
+            loading="lazy"
+            width="400" height="400"
+          >
+          <div class="bb-quick-view-inner__info">
+            <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--bb-color-text-muted)">${this.#escHtml(data.vendor)}</p>
+            <h3 style="margin:0 0 .5rem;font-size:1.25rem">${this.#escHtml(data.title)}</h3>
+            <p style="font-weight:700;font-size:1.1rem">${this.#formatMoney(data.price)}</p>
+            <p style="font-size:.875rem;color:var(--bb-color-text-muted);line-height:1.6">${data.description?.replace(/<[^>]+>/g, '').slice(0, 200) || ''}…</p>
+            <a href="/products/${handle}" style="font-size:.875rem;color:var(--bb-color-accent)">
+              ${this.#t('view_full', 'View full product')} →
+            </a>
+          </div>
+        </div>
+      `;
+    } catch {
+      content.innerHTML = `<p style="padding:2rem;text-align:center">${this.#t('quick_view_error', 'Could not load product details.')}</p>`;
+    }
+  }
+
+  /* ── Inventory async check ───────────────────────────────────────── */
+  async #prefetchInventory() {
+    const cards = this.querySelectorAll('.bb-product-card[data-handle]');
+    const handles = [...new Set([...cards].map(c => c.dataset.handle).filter(Boolean))];
+
+    // Stagger requests to avoid hammering the server
+    for (const handle of handles.slice(0, 20)) {
+      if (this.#inventoryCache.has(handle)) continue;
+      try {
+        const resp = await fetch(`/products/${handle}.js`, { priority: 'low' });
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        const available = data.available === true;
+        this.#inventoryCache.set(handle, available);
+
+        // Update any card with this handle
+        this.querySelectorAll(`[data-handle="${handle}"]`).forEach(card => {
+          const wasAvailable = card.dataset.available === 'true';
+          if (wasAvailable !== available) {
+            card.dataset.available = available;
+            // Re-render card state
+            this.#renderCardStates();
+          }
+        });
+      } catch { /* silently skip */ }
+
+      // Small yield to not block main thread
+      await new Promise(r => setTimeout(r, 80));
+    }
+  }
+
+  /* ── Countdown timer ─────────────────────────────────────────────── */
+  #initTimer() {
+    const timerBar = this.closest('.bundle-builder-section')?.querySelector('.bb-timer-bar');
+    if (!timerBar) return;
+
+    const endStr = timerBar.dataset.end;
+    if (!endStr) return;
+
+    const endDate = new Date(endStr).getTime();
+    if (isNaN(endDate)) return;
+
+    const update = () => {
+      const diff = endDate - Date.now();
+      if (diff <= 0) {
+        timerBar.hidden = true;
+        clearInterval(this.#timerInterval);
+        return;
+      }
+      const days    = Math.floor(diff / 86400000);
+      const hours   = Math.floor((diff % 86400000) / 3600000);
+      const minutes = Math.floor((diff % 3600000) / 60000);
+      const seconds = Math.floor((diff % 60000) / 1000);
+
+      timerBar.querySelector('[data-unit="days"]').textContent    = String(days).padStart(2, '0');
+      timerBar.querySelector('[data-unit="hours"]').textContent   = String(hours).padStart(2, '0');
+      timerBar.querySelector('[data-unit="minutes"]').textContent = String(minutes).padStart(2, '0');
+      timerBar.querySelector('[data-unit="seconds"]').textContent = String(seconds).padStart(2, '0');
+    };
+
+    update();
+    this.#timerInterval = setInterval(update, 1000);
+  }
+
+  /* ── Search / filter ─────────────────────────────────────────────── */
+  #initSearch() {
+    const input = this.querySelector('.bb-search-input');
+    if (!input) return;
+
+    input.addEventListener('input', () => {
+      clearTimeout(this.#searchDebounce);
+      this.#searchDebounce = setTimeout(() => this.#filterCards(input.value), 200);
+    });
+  }
+
+  #filterCards(query) {
+    const q = query.trim().toLowerCase();
+    this.querySelectorAll('.bb-product-card').forEach(card => {
+      if (!q) { card.hidden = false; return; }
+      const title  = (card.dataset.title || '').toLowerCase();
+      const vendor = (card.querySelector('.bb-product-card__vendor')?.textContent || '').toLowerCase();
+      card.hidden = !title.includes(q) && !vendor.includes(q);
+    });
+  }
+
+  /* ── Hint / status messages ──────────────────────────────────────── */
+  #showHint(msg, type = '') {
+    const hint = this.querySelector('.bb-cta-hint');
+    if (!hint) return;
+    hint.textContent = msg;
+    hint.className = 'bb-cta-hint' + (type ? ` is-${type}` : '');
+
+    if (type !== 'error') {
+      setTimeout(() => {
+        hint.textContent = '';
+        hint.className = 'bb-cta-hint';
+      }, 4000);
+    }
+  }
+
+  /* ── Screen reader announcer ─────────────────────────────────────── */
+  #srAnnounce(msg) {
+    const el = document.getElementById(`bb-sr-status-${this.#sectionId}`);
+    if (!el) return;
+    el.textContent = '';
+    requestAnimationFrame(() => { el.textContent = msg; });
+  }
+
+  #announceReady() {
+    this.#srAnnounce(this.#t('builder_ready', 'Bundle builder ready. Select products to build your bundle.'));
+  }
+
+  /* ── Analytics / dataLayer ───────────────────────────────────────── */
+  #track(event, data = {}) {
+    try {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ event, bundle_section: this.#sectionId, ...data });
+    } catch { /* silently ignore */ }
+  }
+
+  /* ── Utilities ───────────────────────────────────────────────────── */
+  #formatMoney(cents) {
+    const amount = (cents / 100).toFixed(3);
+    if (this.#currency === 'KWD') return `${amount} KD`;
+    return new Intl.NumberFormat(this.#locale, { style: 'currency', currency: this.#currency }).format(cents / 100);
+  }
+
+  #escHtml(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  #t(key, fallback) {
+    // Simple client-side t() shim — real translations via Shopify's Liquid t filter
+    return fallback;
+  }
+}
+
+/* ── Register custom element (deferred, non-blocking) ─────────────── */
+if ('customElements' in window) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => customElements.define('bundle-builder', BundleBuilder));
+  } else {
+    customElements.define('bundle-builder', BundleBuilder);
+  }
+}
+
+})();
+</script>
+
+{% schema %}
+{
+  "name": "Bundle Builder",
+  "tag": "div",
+  "class": "section-bundle-builder",
+  "limit": 1,
+  "settings": [
+
+    {
+      "type": "header",
+      "content": "Bundle Identity"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Build Your Bundle"
+    },
+    {
+      "type": "text",
+      "id": "subheading",
+      "label": "Subheading",
+      "default": "Mix and match your favourite products and save."
+    },
+
+    {
+      "type": "header",
+      "content": "Bundle Type"
+    },
+    {
+      "type": "select",
+      "id": "bundle_type",
+      "label": "Bundle Type",
+      "info": "Controls discount logic, wizard mode, and progress behaviour.",
+      "options": [
+        { "value": "mix_match", "label": "Mix & Match — pick any items up to max" },
+        { "value": "fixed",     "label": "Fixed — pre-defined set of products" },
+        { "value": "box",       "label": "Box — fill a box with N items" },
+        { "value": "bogo",      "label": "BOGO — buy one get one" },
+        { "value": "tiered",    "label": "Tiered — discount increases with quantity" },
+        { "value": "fbt",       "label": "Frequently Bought Together" },
+        { "value": "gift_set",  "label": "Gift Set — curated gift bundle" },
+        { "value": "wizard",    "label": "Wizard — step-by-step guided flow" }
+      ],
+      "default": "mix_match"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_bundle_type_badge",
+      "label": "Show bundle type badge",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "bundle_type_badge_label",
+      "label": "Badge label (overrides auto-generated)",
+      "placeholder": "e.g. Mix & Match"
+    },
+
+    {
+      "type": "header",
+      "content": "Quantity Rules"
+    },
+    {
+      "type": "range",
+      "id": "min_products",
+      "label": "Minimum items to complete bundle",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "max_products",
+      "label": "Maximum items allowed in bundle",
+      "min": 1,
+      "max": 50,
+      "step": 1,
+      "default": 6
+    },
+
+    {
+      "type": "header",
+      "content": "Tiered Discounts"
+    },
+    {
+      "type": "paragraph",
+      "content": "Define up to 5 quantity-based tiers. Leave Qty at 0 to disable a tier."
+    },
+
+    {
+      "type": "range",
+      "id": "tier_1_qty",
+      "label": "Tier 1 — minimum quantity",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "tier_1_discount",
+      "label": "Tier 1 — discount %",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "%",
+      "default": 10
+    },
+    {
+      "type": "text",
+      "id": "tier_1_label",
+      "label": "Tier 1 — badge label",
+      "default": "10% off"
+    },
+
+    {
+      "type": "range",
+      "id": "tier_2_qty",
+      "label": "Tier 2 — minimum quantity",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "range",
+      "id": "tier_2_discount",
+      "label": "Tier 2 — discount %",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "%",
+      "default": 20
+    },
+    {
+      "type": "text",
+      "id": "tier_2_label",
+      "label": "Tier 2 — badge label",
+      "default": "20% off"
+    },
+
+    {
+      "type": "range",
+      "id": "tier_3_qty",
+      "label": "Tier 3 — minimum quantity",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "tier_3_discount",
+      "label": "Tier 3 — discount %",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "%",
+      "default": 30
+    },
+    {
+      "type": "text",
+      "id": "tier_3_label",
+      "label": "Tier 3 — badge label",
+      "default": "30% off"
+    },
+
+    {
+      "type": "range",
+      "id": "tier_4_qty",
+      "label": "Tier 4 — minimum quantity",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "tier_4_discount",
+      "label": "Tier 4 — discount %",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "%",
+      "default": 40
+    },
+    {
+      "type": "text",
+      "id": "tier_4_label",
+      "label": "Tier 4 — badge label",
+      "default": "40% off"
+    },
+
+    {
+      "type": "range",
+      "id": "tier_5_qty",
+      "label": "Tier 5 — minimum quantity",
+      "min": 0,
+      "max": 20,
+      "step": 1,
+      "default": 0
+    },
+    {
+      "type": "range",
+      "id": "tier_5_discount",
+      "label": "Tier 5 — discount %",
+      "min": 0,
+      "max": 80,
+      "step": 1,
+      "unit": "%",
+      "default": 50
+    },
+    {
+      "type": "text",
+      "id": "tier_5_label",
+      "label": "Tier 5 — badge label",
+      "default": "50% off"
+    },
+
+    {
+      "type": "header",
+      "content": "Free Gift"
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_free_gift",
+      "label": "Enable free gift at threshold",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "free_gift_threshold",
+      "label": "Free gift unlocks when customer selects N items",
+      "min": 1,
+      "max": 20,
+      "step": 1,
+      "default": 5
+    },
+    {
+      "type": "product",
+      "id": "free_gift_product",
+      "label": "Free gift product"
+    },
+
+    {
+      "type": "header",
+      "content": "Product Filtering"
+    },
+    {
+      "type": "text",
+      "id": "filter_by_tag",
+      "label": "Show only products with these tags (comma-separated)",
+      "info": "Applied globally across all collection blocks. Individual blocks can override.",
+      "placeholder": "sale, bundle-eligible, new"
+    },
+    {
+      "type": "text",
+      "id": "filter_by_vendor",
+      "label": "Show only products from these vendors (comma-separated)",
+      "placeholder": "Al Moallem, Brand X"
+    },
+
+    {
+      "type": "header",
+      "content": "Wizard Mode"
+    },
+    {
+      "type": "select",
+      "id": "wizard_step_animation",
+      "label": "Step transition animation",
+      "options": [
+        { "value": "slide", "label": "Slide in from side" },
+        { "value": "fade",  "label": "Fade" },
+        { "value": "scale", "label": "Scale up" }
+      ],
+      "default": "slide"
+    },
+
+    {
+      "type": "header",
+      "content": "Metaobject Config"
+    },
+    {
+      "type": "text",
+      "id": "metaobject_id",
+      "label": "Bundle Config metaobject ID",
+      "info": "Enter the GID (gid://shopify/Metaobject/…) to pull bundle_config overrides from a metaobject. Leave blank to use section settings.",
+      "placeholder": "gid://shopify/Metaobject/123456789"
+    },
+
+    {
+      "type": "header",
+      "content": "Countdown Timer"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_timer",
+      "label": "Show countdown timer",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "timer_end_date",
+      "label": "Timer end date/time (ISO 8601 UTC)",
+      "info": "Example: 2025-12-31T23:59:59Z",
+      "placeholder": "2025-12-31T23:59:59Z"
+    },
+
+    {
+      "type": "header",
+      "content": "Display Options"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_progress_bar",
+      "label": "Show progress bar",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_search",
+      "label": "Enable product search",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "show_savings",
+      "label": "Show savings amount in summary",
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "redirect_to_cart",
+      "label": "Redirect to cart page after adding bundle",
+      "default": false
+    },
+
+    {
+      "type": "header",
+      "content": "Layout"
+    },
+    {
+      "type": "range",
+      "id": "desktop_columns",
+      "label": "Product columns — desktop",
+      "min": 2,
+      "max": 5,
+      "step": 1,
+      "default": 3
+    },
+    {
+      "type": "range",
+      "id": "mobile_columns",
+      "label": "Product columns — mobile",
+      "min": 1,
+      "max": 3,
+      "step": 1,
+      "default": 2
+    },
+
+    {
+      "type": "header",
+      "content": "Colors"
+    },
+    {
+      "type": "color",
+      "id": "color_primary",
+      "label": "Primary color",
+      "default": "#1a1a2e"
+    },
+    {
+      "type": "color",
+      "id": "color_accent",
+      "label": "Accent / gold color",
+      "default": "#c8a96e"
+    },
+    {
+      "type": "color",
+      "id": "color_bg",
+      "label": "Section background",
+      "default": "#f9f7f4"
+    },
+    {
+      "type": "color",
+      "id": "color_card_bg",
+      "label": "Product card background",
+      "default": "#ffffff"
+    },
+    {
+      "type": "color",
+      "id": "color_card_border",
+      "label": "Card border",
+      "default": "#e8e3dc"
+    },
+    {
+      "type": "color",
+      "id": "color_card_hover_border",
+      "label": "Card hover border",
+      "default": "#c8a96e"
+    },
+    {
+      "type": "color",
+      "id": "color_text",
+      "label": "Text color",
+      "default": "#1a1a2e"
+    },
+    {
+      "type": "color",
+      "id": "color_text_muted",
+      "label": "Muted text color",
+      "default": "#6b6b7b"
+    },
+    {
+      "type": "color",
+      "id": "color_progress_bg",
+      "label": "Progress bar track color",
+      "default": "#e8e3dc"
+    },
+    {
+      "type": "color",
+      "id": "color_tier_1",
+      "label": "Tier 1 badge color",
+      "default": "#2ecc71"
+    },
+    {
+      "type": "color",
+      "id": "color_tier_2",
+      "label": "Tier 2 badge color",
+      "default": "#3498db"
+    },
+    {
+      "type": "color",
+      "id": "color_free_gift",
+      "label": "Free gift highlight color",
+      "default": "#e74c3c"
+    },
+
+    {
+      "type": "header",
+      "content": "Shape"
+    },
+    {
+      "type": "range",
+      "id": "card_border_radius",
+      "label": "Card corner radius (px)",
+      "min": 0,
+      "max": 32,
+      "step": 2,
+      "default": 12
+    },
+    {
+      "type": "range",
+      "id": "button_border_radius",
+      "label": "Button corner radius (px)",
+      "min": 0,
+      "max": 32,
+      "step": 2,
+      "default": 8
+    }
+
+  ],
+
+  "blocks": [
+    {
+      "type": "collection",
+      "name": "Collection Tab / Wizard Step",
+      "settings": [
+        {
+          "type": "collection",
+          "id": "collection",
+          "label": "Collection"
+        },
+        {
+          "type": "text",
+          "id": "collection_tab_label",
+          "label": "Tab / step label",
+          "info": "Overrides the collection title in tabs and wizard step buttons."
+        },
+        {
+          "type": "text",
+          "id": "tab_icon",
+          "label": "Tab icon (emoji or SVG text)",
+          "placeholder": "🛋️"
+        },
+        {
+          "type": "text",
+          "id": "step_description",
+          "label": "Step description (wizard mode only)",
+          "info": "Shown beneath the step title to guide customers."
+        },
+        {
+          "type": "range",
+          "id": "product_limit",
+          "label": "Maximum products to display",
+          "min": 4,
+          "max": 100,
+          "step": 2,
+          "default": 50
+        },
+        {
+          "type": "range",
+          "id": "step_min_qty",
+          "label": "Minimum items to select in this step (wizard mode)",
+          "min": 0,
+          "max": 10,
+          "step": 1,
+          "default": 1
+        },
+        {
+          "type": "range",
+          "id": "step_max_qty",
+          "label": "Maximum items to select in this step (wizard mode, 0 = use global max)",
+          "min": 0,
+          "max": 20,
+          "step": 1,
+          "default": 0
+        },
+        {
+          "type": "text",
+          "id": "allow_tag_filter",
+          "label": "Filter products by tag (comma-separated, overrides global)",
+          "placeholder": "new, featured"
+        },
+        {
+          "type": "text",
+          "id": "allow_vendor_filter",
+          "label": "Filter products by vendor (comma-separated, overrides global)",
+          "placeholder": "Al Moallem"
+        },
+        {
+          "type": "range",
+          "id": "desktop_columns",
+          "label": "Desktop columns (overrides global)",
+          "min": 0,
+          "max": 5,
+          "step": 1,
+          "default": 0,
+          "info": "Set to 0 to use the global section setting."
+        },
+        {
+          "type": "range",
+          "id": "mobile_columns",
+          "label": "Mobile columns (overrides global)",
+          "min": 0,
+          "max": 3,
+          "step": 1,
+          "default": 0,
+          "info": "Set to 0 to use the global section setting."
+        },
+        {
+          "type": "checkbox",
+          "id": "show_collection_image",
+          "label": "Show collection hero image above grid",
+          "default": false
+        }
+      ]
+    },
+    {
+      "type": "required_product",
+      "name": "Required Product",
+      "settings": [
+        {
+          "type": "product",
+          "id": "product",
+          "label": "Required product"
+        },
+        {
+          "type": "range",
+          "id": "step_ref",
+          "label": "Associate with wizard step number",
+          "min": 1,
+          "max": 10,
+          "step": 1,
+          "default": 1,
+          "info": "Match this to the position of the collection tab block this product belongs to."
+        }
+      ]
+    }
+  ],
+
+  "presets": [
+    {
+      "name": "Bundle Builder — Mix & Match",
+      "settings": {
+        "bundle_type": "mix_match",
+        "heading": "Build Your Bundle",
+        "subheading": "Mix and match your favourite products and save.",
+        "min_products": 3,
+        "max_products": 6,
+        "tier_1_qty": 3,
+        "tier_1_discount": 10,
+        "tier_1_label": "10% off",
+        "tier_2_qty": 5,
+        "tier_2_discount": 20,
+        "tier_2_label": "20% off",
+        "show_progress_bar": true,
+        "enable_search": true,
+        "show_savings": true
+      },
+      "blocks": [
+        { "type": "collection" }
+      ]
+    },
+    {
+      "name": "Bundle Builder — Wizard",
+      "settings": {
+        "bundle_type": "wizard",
+        "heading": "Build Your Perfect Set",
+        "subheading": "Follow the steps to build your custom bundle.",
+        "min_products": 3,
+        "max_products": 9,
+        "wizard_step_animation": "slide",
+        "show_progress_bar": true
+      },
+      "blocks": [
+        { "type": "collection", "settings": { "collection_tab_label": "Step 1: Choose Base", "step_min_qty": 1 } },
+        { "type": "collection", "settings": { "collection_tab_label": "Step 2: Add Extras", "step_min_qty": 1 } },
+        { "type": "collection", "settings": { "collection_tab_label": "Step 3: Finishing Touches", "step_min_qty": 1 } }
+      ]
+    },
+    {
+      "name": "Bundle Builder — Tiered Discount",
+      "settings": {
+        "bundle_type": "tiered",
+        "heading": "Buy More, Save More",
+        "subheading": "The more you add, the bigger your discount.",
+        "min_products": 1,
+        "max_products": 10,
+        "tier_1_qty": 3,
+        "tier_1_discount": 10,
+        "tier_1_label": "10% off",
+        "tier_2_qty": 5,
+        "tier_2_discount": 20,
+        "tier_2_label": "20% off",
+        "tier_3_qty": 8,
+        "tier_3_discount": 30,
+        "tier_3_label": "30% off",
+        "show_progress_bar": true,
+        "show_savings": true,
+        "show_bundle_type_badge": true,
+        "bundle_type_badge_label": "Volume Discount"
+      },
+      "blocks": [
+        { "type": "collection" }
+      ]
+    }
+  ]
+}
+{% endschema %}
