@@ -417,6 +417,13 @@
                           >
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                           </button>
+
+                          {%- comment -%} Selected checkmark overlay ─────────── {%- endcomment -%}
+                          <div class="bb-product-card__checkmark" aria-hidden="true">
+                            <span class="bb-product-card__checkmark-icon">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            </span>
+                          </div>
                         </div>
 
                         <div class="bb-product-card__info">
@@ -545,6 +552,25 @@
         {%- endif -%}
 
         {%- comment -%} ── Active discount display ───────────────────────────── {%- endcomment -%}
+        {%- comment -%} ── Slot visualization (filled in by JS) ─────────────── {%- endcomment -%}
+        <div class="bb-slots-wrap" aria-hidden="true">
+          <div class="bb-slots" id="bb-slots-{{ section_id }}">
+            {%- for i in (1..max_qty) -%}
+            <div class="bb-slot" data-slot="{{ i }}">
+              <span class="bb-slot__empty" aria-hidden="true">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              </span>
+            </div>
+            {%- endfor -%}
+          </div>
+          <div class="bb-slots-label">
+            <span class="bb-slots-count">0</span>
+            {%- if locale_is_ar -%}من{%- else -%}of{%- endif -%}
+            <span class="bb-slots-max">{{ max_qty }}</span>
+            {%- if locale_is_ar -%}مختار{%- else -%}selected{%- endif -%}
+          </div>
+        </div>
+
         <div class="bb-active-discount" aria-live="polite" hidden>
           <span class="bb-active-discount__icon" aria-hidden="true">🏷</span>
           <span class="bb-active-discount__text"></span>
@@ -552,6 +578,19 @@
         <div class="bb-next-tier-hint" aria-live="polite" hidden>
           <span class="bb-next-tier-hint__text"></span>
         </div>
+
+        {%- comment -%} ── Tier unlock progress (shown when tiers configured) ── {%- endcomment -%}
+        {%- if bb.tier_1_qty > 0 -%}
+        <div class="bb-tier-progress" aria-label="{%- if locale_is_ar -%}تقدّم الخصم{%- else -%}Discount progress{%- endif -%}">
+          <div class="bb-tier-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="bb-tier-progress-fill"></div>
+          </div>
+          <div class="bb-tier-progress-labels">
+            <span class="bb-tier-progress-label-start"></span>
+            <span class="bb-tier-progress-label-end"></span>
+          </div>
+        </div>
+        {%- endif -%}
 
         {%- comment -%} ── Selected items list ───────────────────────────────── {%- endcomment -%}
         <div class="bb-selection-summary">
@@ -1754,6 +1793,277 @@ bundle-builder {
   .bb-wizard-controls,
   .bb-cta-btn { display: none !important; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   OUAI-INSPIRED ENHANCEMENTS
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── Checkmark overlay on selected product cards ───────────────────── */
+.bb-product-card__checkmark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--bb-color-accent) 18%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.bb-product-card.is-selected .bb-product-card__checkmark {
+  opacity: 1;
+}
+
+.bb-product-card__checkmark-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--bb-color-accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(0.3);
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.4);
+  box-shadow: 0 4px 16px rgba(0,0,0,.22);
+}
+
+.bb-product-card.is-selected .bb-product-card__checkmark-icon {
+  transform: scale(1);
+}
+
+/* Selected card border glow */
+.bb-product-card.is-selected {
+  border-color: var(--bb-color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--bb-color-accent) 25%, transparent), var(--bb-shadow-card-hover);
+}
+
+/* Add button "selected" state — green fill with checkmark label */
+.bb-product-card.is-selected .bb-product-card__add-btn:not(:disabled) {
+  background: var(--bb-color-success, #27ae60);
+  border-color: var(--bb-color-success, #27ae60);
+  color: #fff;
+}
+
+.bb-product-card.is-selected .bb-product-card__add-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bb-color-success, #27ae60) 80%, black);
+  border-color: color-mix(in srgb, var(--bb-color-success, #27ae60) 80%, black);
+}
+
+/* Card bounce animation on add */
+@media (prefers-reduced-motion: no-preference) {
+  .bb-product-card.just-added {
+    animation: bb-cardBounce 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.4);
+  }
+}
+
+@keyframes bb-cardBounce {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.035) translateY(-2px); }
+  65%  { transform: scale(0.98); }
+  100% { transform: scale(1); }
+}
+
+/* ── Slot visualization ────────────────────────────────────────────── */
+.bb-slots-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.bb-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.bb-slot {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  border: 2px dashed var(--bb-color-card-border);
+  background: var(--bb-color-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.bb-slot.is-filled {
+  border: 2px solid var(--bb-color-accent);
+  background: var(--bb-color-card-bg);
+}
+
+.bb-slot__empty {
+  color: var(--bb-color-card-border);
+  display: flex;
+}
+
+.bb-slot__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bb-slot__qty-badge {
+  position: absolute;
+  inset-block-end: 2px;
+  inset-inline-end: 2px;
+  background: var(--bb-color-accent);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bb-slot.just-filled {
+    animation: bb-slotPop 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.4);
+  }
+  .bb-slot.just-emptied {
+    animation: bb-slotEmpty 0.2s ease;
+  }
+}
+
+@keyframes bb-slotPop {
+  0%   { transform: scale(0.6); opacity: 0.4; }
+  70%  { transform: scale(1.12); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bb-slotEmpty {
+  0%   { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.7); opacity: 0.3; }
+}
+
+.bb-slots-label {
+  font-size: var(--bb-font-size-xs);
+  color: var(--bb-color-text-muted);
+  display: flex;
+  gap: 0.25rem;
+}
+
+.bb-slots-count {
+  font-weight: 700;
+  color: var(--bb-color-accent);
+}
+
+/* ── Tier progress bar (toward next discount) ──────────────────────── */
+.bb-tier-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.bb-tier-progress-track {
+  height: 6px;
+  background: var(--bb-color-progress-bg);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.bb-tier-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    to right,
+    var(--bb-color-tier-1, #2ecc71),
+    var(--bb-color-accent)
+  );
+  border-radius: 100px;
+  width: 0%;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[dir="rtl"] .bb-tier-progress-fill {
+  background: linear-gradient(
+    to left,
+    var(--bb-color-tier-1, #2ecc71),
+    var(--bb-color-accent)
+  );
+}
+
+.bb-tier-progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--bb-font-size-xs);
+  color: var(--bb-color-text-muted);
+}
+
+.bb-tier-progress-label-end {
+  font-weight: 700;
+  color: var(--bb-color-tier-1, #2ecc71);
+}
+
+/* ── Mobile sticky bar (always-visible, OUAI-style) ────────────────── */
+@container (max-width: 900px) {
+  .bb-mobile-drawer {
+    transform: translateY(0);
+    border-top: 1.5px solid var(--bb-color-card-border);
+  }
+
+  .bb-mobile-drawer__slots-row {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .bb-mobile-drawer__slot-thumb {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1.5px solid var(--bb-color-card-border);
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .bb-mobile-drawer__slot-empty {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1.5px dashed var(--bb-color-card-border);
+    background: var(--bb-color-bg);
+    flex-shrink: 0;
+  }
+}
+
+/* ── Animated price number ─────────────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .bb-bundle-total.price-changed {
+    animation: bb-priceFlash 0.35s ease;
+  }
+}
+
+@keyframes bb-priceFlash {
+  0%   { color: var(--bb-color-accent); transform: scale(1.08); }
+  100% { color: inherit; transform: scale(1); }
+}
+
+/* ── Discount milestone celebration ────────────────────────────────── */
+@media (prefers-reduced-motion: no-preference) {
+  .bb-tier-badge.just-unlocked {
+    animation: bb-tierUnlock 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.4);
+  }
+}
+
+@keyframes bb-tierUnlock {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.18) rotate(-3deg); }
+  70%  { transform: scale(0.96) rotate(2deg); }
+  100% { transform: scale(1.05) rotate(0deg); }
+}
 </style>
 
 <script>
@@ -1986,6 +2296,7 @@ class BundleBuilder extends HTMLElement {
     const panel   = parseInt(card?.dataset.panel || '1', 10);
     const isReq   = card?.dataset.required === 'true';
 
+    const prevTier = this.#activeTier();
     if (this.#selections.has(variantId)) {
       const entry = this.#selections.get(variantId);
       this.#selections.set(variantId, { ...entry, qty: entry.qty + 1 });
@@ -1994,6 +2305,22 @@ class BundleBuilder extends HTMLElement {
     }
 
     this.#updateUI();
+
+    // Play card bounce animation
+    if (card) this.#playAddAnimation(card);
+
+    // If a new discount tier just unlocked, celebrate the badge
+    const newTier = this.#activeTier();
+    if (newTier && (!prevTier || newTier.qty !== prevTier.qty)) {
+      const badge = this.querySelector(`.bb-tier-badge[data-qty="${newTier.qty}"]`);
+      if (badge) {
+        badge.classList.remove('just-unlocked');
+        void badge.offsetWidth;
+        badge.classList.add('just-unlocked');
+        setTimeout(() => badge.classList.remove('just-unlocked'), 600);
+      }
+    }
+
     this.#track('bundle_product_add', { variantId, title, price });
     this.#srAnnounce(`${title} ${this.#t('added_to_bundle', 'added to bundle')}`);
   }
@@ -2104,6 +2431,97 @@ class BundleBuilder extends HTMLElement {
     }
   }
 
+  /* ── Card bounce animation ───────────────────────────────────────── */
+  #playAddAnimation(card) {
+    if (!card) return;
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    card.classList.remove('just-added');
+    void card.offsetWidth;
+    card.classList.add('just-added');
+    setTimeout(() => card.classList.remove('just-added'), 450);
+  }
+
+  /* ── Slot visualization ──────────────────────────────────────────── */
+  #renderSlots() {
+    const slotsEl = this.querySelector('.bb-slots');
+    const countEl = this.querySelector('.bb-slots-count');
+    const maxEl   = this.querySelector('.bb-slots-max');
+    if (!slotsEl) return;
+
+    const total = this.#totalQuantity();
+    if (countEl) countEl.textContent = total;
+    if (maxEl)   maxEl.textContent   = this.#maxQty;
+
+    // Build array of filled images (one per unit quantity)
+    const filled = [];
+    for (const entry of this.#selections.values()) {
+      if (entry.isGift) continue;
+      for (let i = 0; i < entry.qty; i++) {
+        filled.push({ img: entry.img, title: entry.title, qty: entry.qty });
+      }
+    }
+
+    const slots = slotsEl.querySelectorAll('.bb-slot');
+    slots.forEach((slot, i) => {
+      const wasFilledBefore = slot.classList.contains('is-filled');
+      if (i < filled.length) {
+        const item = filled[i];
+        if (!wasFilledBefore) {
+          slot.innerHTML = item.img
+            ? `<img class="bb-slot__img" src="${this.#escHtml(item.img)}" alt="${this.#escHtml(item.title)}" loading="lazy" width="46" height="46">`
+            : `<span class="bb-slot__empty" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+          slot.classList.add('is-filled', 'just-filled');
+          setTimeout(() => slot.classList.remove('just-filled'), 450);
+        }
+      } else {
+        if (wasFilledBefore) {
+          slot.classList.add('just-emptied');
+          setTimeout(() => {
+            slot.classList.remove('is-filled', 'just-emptied');
+            slot.innerHTML = `<span class="bb-slot__empty" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>`;
+          }, 220);
+        }
+      }
+    });
+  }
+
+  /* ── Tier progress bar ───────────────────────────────────────────── */
+  #renderTierProgress() {
+    const wrap = this.querySelector('.bb-tier-progress');
+    if (!wrap) return;
+
+    const total  = this.#totalQuantity();
+    const active = this.#activeTier();
+    const next   = this.#nextTier();
+
+    const fill      = wrap.querySelector('.bb-tier-progress-fill');
+    const track     = wrap.querySelector('.bb-tier-progress-track');
+    const labelStart = wrap.querySelector('.bb-tier-progress-label-start');
+    const labelEnd   = wrap.querySelector('.bb-tier-progress-label-end');
+
+    if (!next && !active) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+
+    if (next) {
+      const from = active ? active.qty : 0;
+      const to   = next.qty;
+      const pct  = Math.min(100, Math.max(0, ((total - from) / (to - from)) * 100));
+      if (fill)  fill.style.width = `${pct}%`;
+      if (track) track.setAttribute('aria-valuenow', Math.round(pct));
+      if (labelStart) labelStart.textContent = active ? `${active.discount}% off` : '';
+      if (labelEnd)   labelEnd.textContent   = `${next.discount}% ${this.#t('off', 'off')} (${next.qty - total} more)`;
+    } else if (active) {
+      // Max tier reached
+      if (fill)  fill.style.width = '100%';
+      if (track) track.setAttribute('aria-valuenow', 100);
+      if (labelStart) labelStart.textContent = '';
+      if (labelEnd) {
+        labelEnd.textContent = this.#dir === 'rtl' ? `خصم ${active.discount}% مفعّل!` : `${active.discount}% off applied!`;
+        labelEnd.style.color = active.color || '';
+      }
+    }
+  }
+
   /* ── Totals ──────────────────────────────────────────────────────── */
   #totalQuantity() {
     let total = 0;
@@ -2163,6 +2581,8 @@ class BundleBuilder extends HTMLElement {
     this.#checkFreeGift();
     this.#renderTiers();
     this.#renderProgress();
+    this.#renderSlots();
+    this.#renderTierProgress();
     this.#renderSelectionList();
     this.#renderPriceSummary();
     this.#renderCardStates();
@@ -2245,7 +2665,19 @@ class BundleBuilder extends HTMLElement {
     const savRow    = this.querySelector('.bb-price-row--savings');
     const savEl     = this.querySelector('.bb-savings-amount');
 
-    if (totalEl)  totalEl.textContent  = this.#formatMoney(disc);
+    if (totalEl) {
+      const prev = totalEl.textContent;
+      const next = this.#formatMoney(disc);
+      if (prev !== next) {
+        totalEl.textContent = next;
+        if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+          totalEl.classList.remove('price-changed');
+          void totalEl.offsetWidth;
+          totalEl.classList.add('price-changed');
+          setTimeout(() => totalEl.classList.remove('price-changed'), 400);
+        }
+      }
+    }
     if (origEl)   origEl.textContent   = this.#formatMoney(orig);
     if (savEl)    savEl.textContent    = `- ${this.#formatMoney(saved)}`;
 
@@ -2555,6 +2987,26 @@ class BundleBuilder extends HTMLElement {
     const totalEl = section.querySelector('.bb-drawer-total');
     if (qtyEl)   qtyEl.textContent   = this.#totalQuantity();
     if (totalEl) totalEl.textContent = this.#formatMoney(this.#discountedTotal());
+
+    // Slot thumbnails in the drawer handle row
+    const preview = section.querySelector('.bb-mobile-drawer__preview');
+    if (preview) {
+      const filled = [];
+      for (const entry of this.#selections.values()) {
+        if (!entry.isGift) filled.push(entry);
+      }
+      const thumbsHtml = filled.map(e =>
+        e.img
+          ? `<img class="bb-mobile-drawer__slot-thumb" src="${this.#escHtml(e.img)}" alt="${this.#escHtml(e.title)}" width="32" height="32" loading="lazy">`
+          : `<span class="bb-mobile-drawer__slot-empty"></span>`
+      ).join('');
+      const empties = Math.max(0, Math.min(3, this.#maxQty - filled.length));
+      const emptiesHtml = Array(empties).fill('<span class="bb-mobile-drawer__slot-empty"></span>').join('');
+      preview.innerHTML = `
+        <span class="bb-mobile-drawer__slots-row">${thumbsHtml}${empties < this.#maxQty ? '' : ''}${empties > 0 ? emptiesHtml : ''}</span>
+        <strong class="bb-drawer-total">${this.#formatMoney(this.#discountedTotal())}</strong>
+      `;
+    }
 
     const drawerCta = section.querySelector('.bb-cta-btn--drawer');
     if (drawerCta) {
